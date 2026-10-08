@@ -1,6 +1,6 @@
 # 技术栈
 
-本文档记录推荐版本和接入方式。版本号在首次执行 `task bootstrap` 后需要按团队实际 CI 环境固定。
+本文档记录推荐版本和接入方式。版本号按团队实际 CI 环境固定。
 
 ## 总览
 
@@ -20,7 +20,7 @@
 | 格式化 | `gofmt`、`dotnet format` | 两端格式化 | 已接入 |
 | 静态检查 | `go vet`、`golangci-lint` | Go 静态分析 | 已接入 |
 | 安全扫描 | `govulncheck` | Go 依赖漏洞扫描 | 已接入 |
-| 任务入口 | Go Task | 跨平台统一命令 | 已接入 |
+| 命令入口 | 直接命令；跨平台 shell 待接入 | 格式化、检查、测试和运行 | 过渡中 |
 
 ## 为什么服务端选择 Go
 
@@ -75,7 +75,6 @@ client/
 - Go：1.25 或更新，实际以 `server/go.mod` 为准。
 - .NET SDK：8.0 或更新。
 - Godot：4.4 或更新，必须使用 .NET 版本。
-- Go Task：3.x。
 - golangci-lint：v2.x。
 
 Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修改 `client/Riftcards.Client.csproj` 中的 SDK 版本并运行客户端编译。
@@ -83,8 +82,8 @@ Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修�
 ## 运行
 
 ```powershell
-task run:server
-task run:client
+go -C server run ./cmd/riftcards-server -addr 127.0.0.1:8080
+godot --path client --editor
 ```
 
 服务端默认监听 `127.0.0.1:8080`，客户端默认连接 `ws://127.0.0.1:8080/ws`。
@@ -94,10 +93,10 @@ task run:client
 `.github/workflows/ci.yml` 在 Windows、macOS、Linux 三平台运行同一门禁：
 
 1. Go 格式只读检查：`gofmt -l`。
-2. `task lint`：`go vet`、`golangci-lint`、`dotnet build --warnaserror`。
-3. `task test`：`go test -race`、`dotnet test`。
+2. `go vet`、`golangci-lint`、`dotnet build --warnaserror` 和 `dotnet format --verify-no-changes`。
+3. `go test -race` 和 `dotnet test`。
 
-CI 使用固定版本的 Go、.NET SDK 和 Go Task，配置最小权限、并发取消、超时和 NuGet 缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
+CI 使用固定版本的 Go 和 .NET SDK，配置最小权限、并发取消、超时和 NuGet 缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
 
 ## 暂不接入
 

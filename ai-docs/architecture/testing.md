@@ -34,20 +34,29 @@
 ## 命令
 
 ```powershell
-task test
-task lint
-task vuln
+gofmt -w server/cmd server/internal
+dotnet format client/src/Core/Riftcards.Client.Core.csproj
+dotnet format client/Riftcards.Client.csproj
+dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+
+go -C server vet ./...
+go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6 run ./...
+dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
+dotnet build client/Riftcards.Client.csproj --warnaserror
+
+go -C server test -race ./...
+dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
 ```
 
-端到端测试在工具链可用后使用固定端口和测试房间；测试结束后必须关闭服务进程。
+跨平台统一 shell 由 task 004 提供；在此之前以上命令是当前权威入口。端到端测试在工具链可用后使用固定端口和测试房间；测试结束后必须关闭服务进程。
 
 ## CI
 
 `.github/workflows/ci.yml` 在 `ubuntu-latest`、`windows-latest`、`macos-latest` 上执行：
 
 1. Go `gofmt` 只读检查。
-2. `task lint` 中的 Go 静态分析和 C# 构建、格式检查。
-3. `task test` 中的 Go race 测试和 C# xUnit 测试。
+2. Go `vet`、`golangci-lint` 和 C# 构建、格式检查。
+3. Go race 测试和 C# xUnit 测试。
 
 纯文档改动通过 `paths-ignore` 跳过完整构建。Godot 图形化测试和 010 定义的本地端到端测试暂不进入该 workflow。
 

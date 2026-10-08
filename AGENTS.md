@@ -39,12 +39,6 @@
 
 ## 完成任务前
 
-运行：
-
-```powershell
-task fmt
-task lint
-task test
-```
+按 `ai-docs/architecture/testing.md` 的“本地门禁”直接运行 Go 与 .NET 格式化、静态检查和测试。跨平台统一 shell 由 task 004 引入，在此之前直接执行各工具命令。
 
 若本机缺少 Godot、Go 或 .NET SDK，必须明确记录未执行的检查，不能把未验证内容描述为已验证。

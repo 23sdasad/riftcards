@@ -41,14 +41,10 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-
-      - name: Install Go tools
+      - name: Install golangci-lint
         shell: bash
         run: |
-          task bootstrap
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
@@ -68,8 +64,30 @@ jobs:
             exit 1
           fi
 
-      - name: Lint
-        run: task lint
+      - name: Go vet
+        working-directory: server
+        run: go vet ./...
 
-      - name: Test
-        run: task test
+      - name: Go lint
+        working-directory: server
+        run: golangci-lint run ./...
+
+      - name: C# build
+        shell: bash
+        run: |
+          dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
+          dotnet build client/Riftcards.Client.csproj --warnaserror
+
+      - name: C# format check
+        shell: bash
+        run: |
+          dotnet format client/src/Core/Riftcards.Client.Core.csproj --verify-no-changes
+          dotnet format client/Riftcards.Client.csproj --verify-no-changes
+          dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj --verify-no-changes
+
+      - name: Go test
+        working-directory: server
+        run: go test -race ./...
+
+      - name: C# test
+        run: dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj

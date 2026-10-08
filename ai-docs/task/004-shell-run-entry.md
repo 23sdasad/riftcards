@@ -7,7 +7,7 @@
 
 ## 目标与背景
 
-当前 `Taskfile.yml` 已提供格式化、lint、测试和运行命令，但缺少可复用的跨平台指令进程能力与统一失败提示。本任务把子进程启动和仓库命令做成稳定的 shell 层，让后续状态机、指令链路和测试任务能在 Windows、macOS、Linux 上使用一致的调用方式。
+删除 `Taskfile.yml` 后，本地格式化、lint、测试和运行暂时使用文档中的直接命令，缺少可复用的跨平台指令进程能力与统一失败提示。本任务把子进程启动和仓库命令做成稳定的 shell 层，让后续状态机、指令链路和测试任务能在 Windows、macOS、Linux 上使用一致的调用方式。
 
 ## 必读
 
@@ -40,17 +40,17 @@
 
 ## 实施步骤
 
-1. 盘点现有 Taskfile 变量、命令、进程启动和文档引用。
+1. 盘点现有直接命令、路径参数、进程启动和文档引用。
 2. 定义跨平台进程 API 与错误语义，覆盖参数、环境、I/O、退出码、取消和超时。
 3. 实现最小 shell 层，并使用当前平台可执行测试助手验证正常、失败、取消和超时路径。
 4. 让运行和验证任务复用同一进程与路径接口；避免用户手工拼接命令。
 5. 更新 README、技术栈和 task 命令说明。
-6. 在 Windows、macOS、Linux 环境运行 `task --list`、环境检查、`task fmt`、`task lint`、`task test`。
+6. 在 Windows、macOS、Linux 环境运行 shell 命令列表、环境检查、格式化、lint、测试和服务端启动。
 
 ## 预计改动
 
 - 新增：跨平台 shell/指令进程实现与测试。
-- 修改：`Taskfile.yml`、`README.md`、`ai-docs/contracts/tech-stack.md`、`ai-docs/architecture/testing.md`。
+- 修改：`README.md`、`ai-docs/contracts/tech-stack.md`、`ai-docs/architecture/testing.md`。
 - 可能新增：进程 runbook 或主题文档。
 
 ## 清理与兼容例外
@@ -64,7 +64,7 @@
 - [ ] 缺少任一必要工具时，环境检查给出工具名、最低版本和安装入口。
 - [ ] `fmt`、`lint`、`test`、`check` 均只引用权威项目路径。
 - [ ] `run:server` 与 `run:client` 的前置检查失败时不会启动半个进程。
-- [ ] README 中列出的命令与 Taskfile 实际任务一致。
+- [ ] README 与测试策略中的命令和 shell 实际入口一致。
 - [ ] 在 Windows、macOS、Linux 完整环境执行全量门禁并记录结果。
 
 ## 验证计划与结果
@@ -72,9 +72,9 @@
 | 日期 | 环境 / 命令 | 预期 | 实际结果 |
 | --- | --- | --- | --- |
 | — | Windows / macOS / Linux shell 进程测试 | 行为一致 | 未执行 |
-| — | `task --list` | 命令清单完整 | 未执行 |
+| — | shell 命令列表 | 命令清单完整 | 未执行 |
 | — | 环境检查任务（正常与缺失工具路径） | 可判断、提示具体 | 未执行 |
-| — | `task fmt && task lint && task test` | 全部通过 | 未执行 |
+| — | shell fmt/lint/test 入口 | 全部通过 | 未执行 |
 
 ## 风险与回退
 

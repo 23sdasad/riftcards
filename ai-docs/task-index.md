@@ -24,7 +24,7 @@ ai-docs/
     ├── 009-event-queue-presentation.md
     ├── 010-local-end-to-end.md
     ├── 011-github-actions-ci.md
-    └── 012-taskfile-layout-correction.md
+    └── 012-remove-taskfile.md
 ```
 
 1. 复制[模板](task/_template.md)为 `task/NNN-kebab-case.md`，编号取当前最大编号加一，不复用；填写范围与可判断的验收条件。
@@ -60,4 +60,4 @@ ai-docs/
 | 009 | [事件队列与表现层解耦](task/009-event-queue-presentation.md) | 008 | planned |
 | 010 | [本地端到端验收](task/010-local-end-to-end.md) | 007、008、009 | planned |
 | 011 | [GitHub Actions CI](task/011-github-actions-ci.md) | 001 | done |
-| 012 | [Taskfile 布局校正](task/012-taskfile-layout-correction.md) | 004、011 | draft |
+| 012 | [删除 Taskfile 并切换直接命令](task/012-remove-taskfile.md) | 011 | done |

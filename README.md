@@ -40,24 +40,35 @@ riftcards 是一个两人回合制卡牌对战项目：
 │  ├─ src/Godot/            # Godot WebSocket 适配层
 │  └─ tests/                # 纯 .NET 单元测试
 ├─ .github/workflows/       # GitHub Actions 三平台 CI
-├─ AGENTS.md                # 后续 AI/自动化代理必须遵守的入口
-└─ Taskfile.yml             # 格式化、lint、测试、运行命令
+└─ AGENTS.md                # 后续 AI/自动化代理必须遵守的入口
 ```
 
 ## 本地命令
 
-工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 `go-task`、Go、.NET SDK 和带 .NET 支持的 Godot。
+工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 Go、.NET SDK 和带 .NET 支持的 Godot；跨平台统一 shell 由 task 004 提供，当前按以下直接命令执行。
 
 ```powershell
-task bootstrap
-task fmt
-task lint
-task test
-task run:server
-task run:client
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+go install golang.org/x/vuln/cmd/govulncheck@latest
+
+gofmt -w server/cmd server/internal
+dotnet format client/src/Core/Riftcards.Client.Core.csproj
+dotnet format client/Riftcards.Client.csproj
+dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+
+go -C server vet ./...
+go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6 run ./...
+dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
+dotnet build client/Riftcards.Client.csproj --warnaserror
+
+go -C server test -race ./...
+dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+
+go -C server run ./cmd/riftcards-server -addr 127.0.0.1:8080
+godot --path client --editor
 ```
 
-`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上运行 Go 格式检查、`task lint` 和 `task test`；仅修改文档时跳过完整构建。
+`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上直接运行同一组 Go 与 .NET 门禁；仅修改文档时跳过完整构建。
 
 服务端启动后监听 `http://127.0.0.1:8080`：
 
