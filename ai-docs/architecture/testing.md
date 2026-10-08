@@ -56,7 +56,7 @@ task vuln         # govulncheck 依赖漏洞扫描
 `.github/workflows/ci.yml` 在 `ubuntu-latest`、`windows-latest`、`macos-latest` 上执行：
 
 1. 用按 commit SHA 固定的 action 准备 Go（版本取自 `server/go.mod`）、.NET SDK（`global.json`）和 Go Task 3.54.0。
-2. Windows 下载固定版本并校验 SHA256 的 LLVM-MinGW，使用 runner 自带的 `clang-cl`；Unix 使用 runner 自带的 `clang`，实际版本打印在日志中。
+2. Windows 下载并校验 SHA256 的固定 LLVM 23.1.3 压缩包（`clang-cl` 驱动）和固定 LLVM-MinGW；Unix 使用 runner 自带的 `clang`，实际版本打印在日志中。
 3. `task bootstrap` 安装锁定版本的 Go 工具。
 4. 以 `dotnet restore --locked-mode` 按 `packages.lock.json` 校验 NuGet 依赖。
 5. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、Go race 测试和 C# xUnit 测试。

@@ -24,6 +24,8 @@
 - `task ci` 是与 CI 相同的只读门禁；`run:server`、`run:client` 用前置条件保证缺工具时不启动半个进程。
 - CI 接回 `task`：Go、.NET、缓存与 `setup-task` 全部按 commit SHA 固定，步骤改为 `task bootstrap`、`dotnet restore --locked-mode`、`task ci`。
 - 修复 CI 首次失败：`KyleMayes/install-llvm-action@v2` 的资产表没有 LLVM 23.1.3。
+- 修复 CI 第二轮失败：macOS 上 Go 按 `server/go.mod` 装 1.25.0，而 golangci-lint 2.14.0 要求 Go 1.26+，工具链自动切换下载失败；Windows 上 runner 自带 `clang-cl` 版本低于 23，与包装器强制的 `-resource-dir=<LLVM-MinGW>\lib\clang\23` 不匹配。
+- 把 `server/go.mod` 的 Go 下限对齐到 1.27，并在 CI 中为 Windows 安装被锁定的 LLVM 23.1.3 压缩包。
 - 修复 Windows cgo：Go 构建 `runtime/cgo` 自带 `-Werror`，`tools/llvm/clang-cl.cmd` 需要降级 `-Wunused-command-line-argument`。
 - 锁定版本：`global.json`（.NET SDK）、三个 `packages.lock.json`（NuGet 与 Godot SDK 包）、`Taskfile.yml`（golangci-lint 2.14.0、govulncheck 1.1.4、最低版本）、CI（Go Task 3.54.0、LLVM-MinGW URL+SHA256）。
 - 同步 README、AGENTS、`ai-docs` 架构/契约/规范文档与相关 task。
@@ -51,7 +53,7 @@
 ## 预计改动
 
 - 新增：`Taskfile.yml`、`global.json`、三个 `packages.lock.json`、`ai-docs/task/012-taskfile-command-entry.md`。
-- 修改：`.github/workflows/ci.yml`、三个 `.csproj`、`tools/llvm/clang-cl.cmd`、`tools/llvm/README.md`、`README.md`、`AGENTS.md`、`ai-docs/README.md`、`ai-docs/architecture/{conventions,testing,paths-and-boundaries}.md`、`ai-docs/contracts/{tech-stack,library-research}.md`、`ai-docs/standards/commits.md`、task 004/005/006/011/013 与 `ai-docs/task-index.md`。
+- 修改：`.github/workflows/ci.yml`、三个 `.csproj`、`server/go.mod`、`tools/llvm/clang-cl.cmd`、`tools/llvm/README.md`、`README.md`、`AGENTS.md`、`ai-docs/README.md`、`ai-docs/architecture/{conventions,testing,paths-and-boundaries}.md`、`ai-docs/contracts/{tech-stack,library-research}.md`、`ai-docs/standards/commits.md`、task 004/005/006/011/013 与 `ai-docs/task-index.md`。
 - 删除：`ai-docs/task/012-remove-taskfile.md`（由本文件取代）。
 
 ## 清理与兼容例外
@@ -65,6 +67,8 @@
 - [x] `run:server`、`run:client`、`lint`、`test` 使用前置条件，缺工具时不启动进程。
 - [x] CI 不再依赖失效的 LLVM action，`task` 入口与所有第三方 action commit 固定。
 - [x] .NET SDK、NuGet、Godot SDK、Go 工具、LLVM 与 CI 专用依赖各有唯一权威锁定位置。
+- [x] Go 版本下限与 golangci-lint 要求一致，CI 不再触发隐式工具链下载。
+- [x] Windows 使用被锁定的 LLVM 23.1.3 驱动，与 `clang-cl.cmd` 的 `-resource-dir` 版本一致。
 - [x] `task ci` 在本机通过：格式检查、lint、C# 构建、Go race 测试和 C# 单测全绿。
 - [x] README、AGENTS、架构、契约与规范文档与 `Taskfile.yml` 实际入口一致。
 - [ ] 三平台 CI 实跑通过（推送后由 GitHub Actions 确认）。
@@ -77,7 +81,9 @@
 | 2026-10-08 | Windows / `task env` | 列出工具版本，缺失项含最低版本与安装入口，非零退出 | 通过：go 1.27.0、dotnet 10.0.401、clang/clang-format/clang-tidy/clangd 23.1.3、golangci-lint 2.14.0、govulncheck、task 3.54.0 正常；godot 报 MISSING，退出码 201 |
 | 2026-10-08 | Windows / `task ci` | 与 CI 相同的只读门禁 | 通过：`gofmt -l` 无输出；`dotnet format --verify-no-changes` 三项通过；`go vet` 通过；golangci-lint 0 issues；C# 构建 0 警告 0 错误；`go test -race` game 与 pathutil 通过；`dotnet test` 4 通过 0 失败 |
 | 2026-10-08 | Windows / LLVM-MinGW 校验 | SHA256 与 CI 锁定值一致 | 通过：`1bcf74d06b724aeecaa6412ca85f5b26fb1da770e7cdcefa9263c9c5c3ad34b6` |
-| 2026-10-08 | `git diff --check`、Markdown 相对链接、workflow 静态检查 | 无空白错误、链接有效、workflow 可解析 | 见下方提交记录 |
+| 2026-10-08 | `git diff --check`、Markdown 相对链接、workflow 静态检查 | 无空白错误、链接有效、workflow 可解析 | 通过：diff 无输出；104 个相对链接有效；actionlint 1.7.12 无告警 |
+| 2026-10-08 | GitHub Actions 首轮（run 37802743366） | 三平台 `task ci` 通过 | 失败：ubuntu 通过；macOS 在 `task bootstrap` 因 Go 1.25 与 golangci-lint 要求不符、工具链下载 404 失败；Windows 在 `go test -race` 因驱动 20→`resource-dir 23` 不匹配失败。已按下述修复 |
+| 2026-10-08 | 修复后端到端 | 三平台通过 | 待推送后确认 |
 | — | GitHub Actions 三平台 | `task ci` 通过 | 推送后确认 |
 
 ## 风险与回退
@@ -90,7 +96,8 @@
 - 2026-10-08：确认 Task 3.54.0 的 `dir` 只在任务级别生效，因此 Go 与 C# 检查拆成带任务级 `dir` 的子任务（`fmt:go`、`lint:cs` 等）。
 - 2026-10-08：确认 CI 首次实跑失败于 `install-llvm-action@v2` 无 23.1.3 资产；改为 Unix 用 runner `clang`、Windows 用固定 LLVM-MinGW。
 - 2026-10-08：确认 Go 的 `runtime/cgo` 构建自带 `-Werror`，`clang-cl.cmd` 必须加 `-Wno-unused-command-line-argument`；该文件保持 ASCII + CRLF，避免 cmd.exe 用 OEM 代码页解析中文注释出错。
+- 2026-10-08：首轮三平台 CI 暴露两个真实缺陷并修复：`server/go.mod` 的 Go 下限低于 golangci-lint 2.14.0 的要求，改为 `go 1.27.0`（与本地验证版本一致）；Windows cgo 需要驱动与 `-resource-dir` 同版本，CI 改为安装被锁定的 LLVM 23.1.3 压缩包并校验 SHA256，而不是使用 runner 自带驱动。
 
 ## 完成摘要
 
-根目录 `Taskfile.yml` 已恢复为唯一命令入口，`task env`、`task ci` 与运行任务的前置条件在三平台使用同一份定义；CI 接回 `task` 并修复 LLVM 安装步骤，所有第三方 action 按 commit SHA 固定；.NET SDK、NuGet、Godot SDK、Go 工具、LLVM 与 CI 专用依赖均已锁定到唯一权威位置。本机 Windows 全量 `task ci` 通过（gofmt、dotnet format、go vet、golangci-lint 0 issues、C# 构建 0 警告、Go race 测试与 4 个 C# 单测）。限制：本机没有 Godot，`task env` 与 Godot 相关命令未能在本机执行；三平台 CI 仍需推送后由 GitHub Actions 确认。
+根目录 `Taskfile.yml` 已恢复为唯一命令入口，`task env`、`task ci` 与运行任务的前置条件在三平台使用同一份定义；CI 接回 `task`，去掉无 23.1.3 资产的 LLVM action，所有第三方 action 按 commit SHA 固定；.NET SDK、NuGet、Godot SDK、Go 版本与 Go 工具、LLVM、LLVM-MinGW 与 CI 专用依赖均已锁定到唯一权威位置。首轮三平台 CI 暴露并修复了两个真实缺陷：Go 下限与 golangci-lint 要求不一致，以及 Windows cgo 驱动与 `-resource-dir` 版本不匹配。本机 Windows 全量 `task ci` 通过（gofmt、dotnet format、go vet、golangci-lint 0 issues、C# 构建 0 警告、Go race 测试与 4 个 C# 单测）。限制：本机没有 Godot，Godot 相关命令未能在本机执行；三平台 CI 修复后的实跑仍需推送确认。

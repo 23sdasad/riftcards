@@ -11,7 +11,7 @@ vars:
   TEST_PROJECT: client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
   GOLANGCI_LINT_VERSION: v2.14.0
   GOVULNCHECK_VERSION: v1.1.4
-  GO_MIN_VERSION: 1.25
+  GO_MIN_VERSION: 1.27
   DOTNET_MIN_VERSION: 8.0
   GODOT_VERSION: 4.7.2
   LLVM_VERSION: 23.1.3

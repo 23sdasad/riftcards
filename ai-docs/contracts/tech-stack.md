@@ -10,7 +10,7 @@
 | 客户端网络 | Godot `WebSocketPeer` | WebSocket 文本帧 | 骨架已接入 |
 | 客户端协议 | `System.Text.Json` | JSON DTO 和事件载荷 | 骨架已接入 |
 | 客户端核心 | 纯 .NET 类库 | 协议、会话、回放缓存 | 骨架已接入 |
-| 服务端语言 | Go 1.25+ | 权威结算、房间、连接 | 骨架已接入 |
+| 服务端语言 | Go 1.27+ | 权威结算、房间、连接 | 骨架已接入 |
 | 服务端网络 | `net/http` + `github.com/coder/websocket` | HTTP 和 WebSocket | 骨架已接入 |
 | 服务端日志 | `log/slog` | 结构化日志 | 骨架已接入 |
 | 服务端随机 | `math/rand` 注入种子 | 可记录随机来源 | 骨架已接入 |
@@ -73,7 +73,7 @@ client/
 
 ## 环境要求
 
-- Go：1.25 或更新，实际以 `server/go.mod` 为准。
+- Go：1.27 或更新，实际以 `server/go.mod` 为准（`golangci-lint` 2.14.0 要求 Go 1.26+，因此下限取 1.27 与本地验证一致）。
 - .NET SDK：8.0 或更新；`global.json` 固定 `8.0.100`，`rollForward: latestMajor` 允许本地使用更高版本 SDK。
 - Godot：4.7.2，必须使用 .NET 版本。
 - Go Task：3.54.0，安装方式见 [taskfile.dev](https://taskfile.dev/installation/)。
@@ -95,7 +95,7 @@ LLVM 版本以 `tools/llvm/VERSION` 为唯一事实来源；Windows 编译器入
 | Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` |
 | LLVM | `tools/llvm/VERSION` |
 | Go Task、golangci-lint、govulncheck、最低工具版本 | `Taskfile.yml` |
-| CI 专用固定项：Go Task、LLVM-MinGW、action commit | `.github/workflows/ci.yml` |
+| CI 专用固定项：Go Task、LLVM 23.1.3 压缩包、LLVM-MinGW、action commit | `.github/workflows/ci.yml` |
 
 升级任何一项时，同一 commit 更新权威位置、CI、文档和受影响 task。
 
@@ -113,7 +113,7 @@ task run:client
 `.github/workflows/ci.yml` 在 Windows、macOS、Linux 三平台运行同一门禁：
 
 1. 按 commit SHA 固定的 action 准备 Go、.NET SDK 和 Go Task 3.54.0。
-2. Windows 校验并安装固定的 LLVM-MinGW；Unix 使用 runner 自带 `clang`，版本打印在日志中。
+2. Windows 校验并安装固定的 LLVM 23.1.3 压缩包（含 `clang-cl` 驱动）和固定的 LLVM-MinGW；Unix 使用 runner 自带 `clang`，版本打印在日志中。
 3. `task bootstrap` 安装锁定版本的 Go 工具，`dotnet restore --locked-mode` 校验锁文件。
 4. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、`go test -race` 和 `dotnet test`。
 
