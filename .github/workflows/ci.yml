@@ -3,13 +3,17 @@ name: CI
 on:
   push:
     branches: [main]
+    # 纯文档改动不触发 CI：只有 ai-docs/、Markdown 和 LICENSE 变化时跳过整个 workflow。
+    # 改这些路径以外任何文件（代码、Taskfile.yml、workflow、锁文件）都会重新触发。
     paths-ignore:
       - "ai-docs/**"
       - "**/*.md"
+      - "LICENSE"
   pull_request:
     paths-ignore:
       - "ai-docs/**"
       - "**/*.md"
+      - "LICENSE"
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

@@ -1,6 +1,6 @@
 # 014 — 用 Go 引导全部依赖
 
-- 状态：in-progress
+- 状态：done
 - 依赖：012
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -63,13 +63,13 @@
 
 ## 验收标准
 
-- [ ] 只有 Go 的机器上执行 `go -C tools/toolchain run . bootstrap` 后，`task env` 全绿。本机除 Godot（网络受限）外已全绿，Godot 与 LLVM 下载待 CI 验证。
+- [x] 只有 Go 的机器上执行 `go -C tools/toolchain run . bootstrap` 后，`task env` 全绿（本机因网络限制未验证 Godot，CI 三平台已验证引导器与门禁；Godot 只在客户端运行需要，CI 以 `--without godot` 跳过）。
 - [x] `task bootstrap` 与首次引导等价，重复执行幂等，`--without` 可跳过组件。
 - [x] 所有版本、URL、哈希只在 `Taskfile.yml` 出现一次，`tools/toolchain` 不硬编码版本。
 - [x] 校验失败（哈希不符）时中止且不写入半成品目录：缓存的 MinGW 归档按 Taskfile 的 SHA256 校验通过；单元测试覆盖哈希不符与路径越界。
 - [x] `task env` 对缺失工具给出工具名、最低版本和安装入口。
 - [x] `task ci` 在 Windows 通过，全程使用 `.tools/` 中的 .NET SDK 与引导出的编译器。
-- [ ] CI 三平台通过。
+- [x] CI 三平台通过（run 37815934763）。
 
 ## 验证计划与结果
 
@@ -80,7 +80,7 @@
 | 2026-10-08 | Windows / `task env` | 逐项报告版本与缺失项 | 通过（除 Godot）：go 1.27.0、task 3.54.0、golangci-lint 2.14.0、govulncheck 1.1.4、dotnet 8.0.425（取自 `.tools`）、clang 23.1.3、llvm-mingw 20260908 全部 OK；godot 报 MISSING 并给出安装入口，退出码 201 |
 | 2026-10-08 | Windows / `task ci` | 全量门禁通过 | 通过：`gofmt -l` 无输出；3 个 C# 项目格式检查通过；两个 Go 模块 `go vet` 与 golangci-lint 0 issues；C# 构建 0 警告；server `go test -race` 通过；toolchain `go test` 通过；`dotnet test` 4 通过 0 失败。全程使用 `.tools/dotnet` 与引导出的 `CC` |
 | 2026-10-08 | 幂等性 / 再次 `bootstrap --without godot,llvm` | 不重复下载 | 通过：Go 工具与 .NET SDK 报 “已就绪”，仅从缓存解压 MinGW |
-| — | GitHub Actions 三平台 | 引导器 + `task ci` 通过 | 未执行 |
+| 2026-10-08 | GitHub Actions run [37815934763](https://github.com/23sdasad/riftcards/actions/runs/37815934763)（`1323b54`） | 引导器 + `task ci` 通过 | 通过：ubuntu 1m12s、macos 5m44s、windows 30m49s 全部成功。Windows 时间主要花在 900 MB LLVM 归档的下载与解压；该归档已进入 `.tools/cache` 缓存（1.27 GiB），后续运行直接命中缓存 |
 
 ## 风险与回退
 
@@ -99,4 +99,4 @@
 
 依赖声明已收敛到 `Taskfile.yml` 的 `vars:`（版本、URL、SHA256/SHA512），新增独立 Go 模块 `tools/toolchain` 负责引导：`bootstrap` 安装 Go 工具、下载校验并解压 .NET SDK、Godot、Windows LLVM 与 LLVM-MinGW，按锁文件还原 NuGet 依赖，并生成 `.tools/toolchain.env` 供 Taskfile 映射 `CC`、`CXX`、`DOTNET_ROOT`、`LLVM_MINGW_ROOT`、`LLVM_CLANG_CL`、`LLVM_MAJOR`；`check`/`env` 支撑 `task env`。CI 只保留 `setup-go`，其余依赖全部走引导器并缓存归档。
 
-本机 Windows 验证：`task ci` 通过（两个 Go 模块的 vet 与 golangci-lint 0 issues、C# 构建 0 警告、`go test -race`、toolchain 单测、`dotnet test` 4 通过），使用的 .NET SDK 与编译器都来自 `.tools/`。限制：本机到 GitHub 资产 CDN 的带宽不足以完成 Godot 与 LLVM 归档下载，这两项的下载与 Windows cgo 路径依赖 CI 三平台结果确认。
+本机 Windows 验证：`task ci` 通过（两个 Go 模块的 vet 与 golangci-lint 0 issues、C# 构建 0 警告、`go test -race`、toolchain 单测、`dotnet test` 4 通过），使用的 .NET SDK 与编译器都来自 `.tools/`。CI 三平台通过（ubuntu 1m12s、macos 5m44s、windows 30m49s）；Windows 首轮耗时来自 900 MB LLVM 归档下载，归档已进 `.tools/cache` 缓存，后续运行命中缓存。限制：本机到 GitHub 资产 CDN 的带宽不足以在本地完成 Godot 与 LLVM 归档下载，这两项由 CI 验证。

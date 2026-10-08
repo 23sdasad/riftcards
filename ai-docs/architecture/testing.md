@@ -61,7 +61,7 @@ task vuln         # govulncheck 依赖漏洞扫描
 3. 缓存 `.tools/cache`（下载归档）与 `~/.nuget/packages`，缓存键包含 `Taskfile.yml` 哈希，版本升级自动失效。
 4. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、Go race 测试和 C# xUnit 测试。
 
-纯文档改动通过 `paths-ignore` 跳过完整构建。Godot 图形化测试和 010 定义的本地端到端测试暂不进入该 workflow。
+纯文档改动（`ai-docs/**`、`**/*.md`、`LICENSE`）不触发该 workflow；改动代码、`Taskfile.yml`、锁文件或 workflow 本身才会运行。Godot 图形化测试和 010 定义的本地端到端测试暂不进入该 workflow。
 
 ## 完成标准
 
