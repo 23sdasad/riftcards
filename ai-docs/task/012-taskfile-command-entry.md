@@ -71,7 +71,7 @@
 - [x] Windows 使用被锁定的 LLVM 23.1.3 驱动，与 `clang-cl.cmd` 的 `-resource-dir` 版本一致。
 - [x] `task ci` 在本机通过：格式检查、lint、C# 构建、Go race 测试和 C# 单测全绿。
 - [x] README、AGENTS、架构、契约与规范文档与 `Taskfile.yml` 实际入口一致。
-- [ ] 三平台 CI 实跑通过（推送后由 GitHub Actions 确认）。
+- [x] 三平台 CI 实跑通过。
 
 ## 验证计划与结果
 
@@ -83,7 +83,8 @@
 | 2026-10-08 | Windows / LLVM-MinGW 校验 | SHA256 与 CI 锁定值一致 | 通过：`1bcf74d06b724aeecaa6412ca85f5b26fb1da770e7cdcefa9263c9c5c3ad34b6` |
 | 2026-10-08 | `git diff --check`、Markdown 相对链接、workflow 静态检查 | 无空白错误、链接有效、workflow 可解析 | 通过：diff 无输出；104 个相对链接有效；actionlint 1.7.12 无告警 |
 | 2026-10-08 | GitHub Actions 首轮（run 37802743366） | 三平台 `task ci` 通过 | 失败：ubuntu 通过；macOS 在 `task bootstrap` 因 Go 1.25 与 golangci-lint 要求不符、工具链下载 404 失败；Windows 在 `go test -race` 因驱动 20→`resource-dir 23` 不匹配失败。已按下述修复 |
-| 2026-10-08 | 修复后端到端 | 三平台通过 | 待推送后确认 |
+| 2026-10-08 | 修复后端到端 | 三平台通过 | 见下一行 |
+| 2026-10-08 | GitHub Actions run [37804268319](https://github.com/23sdasad/riftcards/actions/runs/37804268319)（`32262b6`） | 三平台 `task ci` 通过 | 通过：ubuntu-latest 2m53s、macos-latest 4m22s、windows-latest 6m11s 全部成功 |
 | — | GitHub Actions 三平台 | `task ci` 通过 | 推送后确认 |
 
 ## 风险与回退
@@ -100,4 +101,4 @@
 
 ## 完成摘要
 
-根目录 `Taskfile.yml` 已恢复为唯一命令入口，`task env`、`task ci` 与运行任务的前置条件在三平台使用同一份定义；CI 接回 `task`，去掉无 23.1.3 资产的 LLVM action，所有第三方 action 按 commit SHA 固定；.NET SDK、NuGet、Godot SDK、Go 版本与 Go 工具、LLVM、LLVM-MinGW 与 CI 专用依赖均已锁定到唯一权威位置。首轮三平台 CI 暴露并修复了两个真实缺陷：Go 下限与 golangci-lint 要求不一致，以及 Windows cgo 驱动与 `-resource-dir` 版本不匹配。本机 Windows 全量 `task ci` 通过（gofmt、dotnet format、go vet、golangci-lint 0 issues、C# 构建 0 警告、Go race 测试与 4 个 C# 单测）。限制：本机没有 Godot，Godot 相关命令未能在本机执行；三平台 CI 修复后的实跑仍需推送确认。
+根目录 `Taskfile.yml` 已恢复为唯一命令入口，`task env`、`task ci` 与运行任务的前置条件在三平台使用同一份定义；CI 接回 `task`，去掉无 23.1.3 资产的 LLVM action，所有第三方 action 按 commit SHA 固定；.NET SDK、NuGet、Godot SDK、Go 版本与 Go 工具、LLVM、LLVM-MinGW 与 CI 专用依赖均已锁定到唯一权威位置。首轮三平台 CI 暴露并修复了两个真实缺陷：Go 下限与 golangci-lint 要求不一致，以及 Windows cgo 驱动与 `-resource-dir` 版本不匹配；修复后三平台 CI（run 37804268319）全部通过。本机 Windows 全量 `task ci` 通过（gofmt、dotnet format、go vet、golangci-lint 0 issues、C# 构建 0 警告、Go race 测试与 4 个 C# 单测）。限制：本机没有 Godot，Godot 相关命令未能在本机执行。

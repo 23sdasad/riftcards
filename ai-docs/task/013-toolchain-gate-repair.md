@@ -79,7 +79,7 @@
 | 2026-10-08 | Godot 4.7.2 无界面导入 | 工程版本与编辑器一致 | 通过：文件扫描和全局类注册完成，退出码 0 |
 | 2026-10-08 | LLVM 23.1.3 工具检查 | `clang`、`clang-cl`、格式、tidy、clangd 可执行 | 通过：版本均为 23.1.3；Windows cgo 使用 `clang-cl.cmd` + LLVM-MinGW 23.1.1 |
 | 2026-10-08 | CI YAML 解析、Markdown 链接和差异检查 | 配置可解析、链接有效、无空白错误 | 通过：YAML 可解析，102 个本地链接有效，`git diff --check` 无输出 |
-| 2026-10-08 | Linux/macOS CI 实跑 | 三平台 LLVM 与门禁一致 | 未执行：需要推送后在 GitHub Actions 运行 |
+| 2026-10-08 | Linux/macOS CI 实跑 | 三平台 LLVM 与门禁一致 | 先失败后修复：首轮 `install-llvm-action` 无 23.1.3 资产；012 改为 Unix 用 runner `clang`、Windows 用固定 LLVM 23.1.3 压缩包后，run [37804268319](https://github.com/23sdasad/riftcards/actions/runs/37804268319) 三平台通过 |
 
 ## 风险与回退
 
