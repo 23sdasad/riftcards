@@ -7,7 +7,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <RootNamespace>Lscs.Client.Core.Tests</RootNamespace>
+    <RootNamespace>Riftcards.Client.Core.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Core/Lscs.Client.Core.csproj" />
+    <ProjectReference Include="../../src/Core/Riftcards.Client.Core.csproj" />
   </ItemGroup>
 </Project>

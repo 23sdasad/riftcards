@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Lscs.Client.Core.Protocol;
+using Riftcards.Client.Core.Protocol;
 
-namespace Lscs.Client.Core.Session;
+namespace Riftcards.Client.Core.Session;
 
 public sealed class GameSession
 {

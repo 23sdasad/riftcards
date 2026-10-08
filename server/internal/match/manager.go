@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mjq/lscs/server/internal/protocol"
+	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
 type Peer interface {

@@ -1,4 +1,4 @@
-# LSCS 游戏规则
+# riftcards 游戏规则
 
 版本：`0.1-draft`
 

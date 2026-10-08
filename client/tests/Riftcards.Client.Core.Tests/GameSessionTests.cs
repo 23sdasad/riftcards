@@ -1,7 +1,7 @@
-using Lscs.Client.Core.Protocol;
-using Lscs.Client.Core.Session;
+using Riftcards.Client.Core.Protocol;
+using Riftcards.Client.Core.Session;
 
-namespace Lscs.Client.Core.Tests;
+namespace Riftcards.Client.Core.Tests;
 
 public sealed class GameSessionTests
 {

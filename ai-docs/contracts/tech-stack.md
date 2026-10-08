@@ -42,7 +42,7 @@ Godot 负责生命周期、渲染和输入；协议解析、会话状态、断�
 
 ```text
 server/
-  cmd/lscs-server/          进程入口、配置、HTTP 生命周期
+  cmd/riftcards-server/     进程入口、配置、HTTP 生命周期
   internal/protocol/        JSON 信封、DTO、错误码
   internal/game/            规则、状态、事件、视图裁剪
   internal/match/           队列、房间、串行结算、广播
@@ -78,7 +78,7 @@ client/
 - Go Task：3.x。
 - golangci-lint：v2.x。
 
-Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修改 `client/Lscs.Client.csproj` 中的 SDK 版本并运行客户端编译。
+Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修改 `client/Riftcards.Client.csproj` 中的 SDK 版本并运行客户端编译。
 
 ## 运行
 

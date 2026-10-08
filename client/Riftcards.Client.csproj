@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>12.0</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <RootNamespace>Lscs.Client</RootNamespace>
+    <RootNamespace>Riftcards.Client</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="src/Core/Lscs.Client.Core.csproj" />
+    <ProjectReference Include="src/Core/Riftcards.Client.Core.csproj" />
   </ItemGroup>
 </Project>

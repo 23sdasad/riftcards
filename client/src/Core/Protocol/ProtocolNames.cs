@@ -1,4 +1,4 @@
-namespace Lscs.Client.Core.Protocol;
+namespace Riftcards.Client.Core.Protocol;
 
 public static class ProtocolNames
 {

@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/mjq/lscs/server/internal/game"
+	"github.com/mjq/riftcards/server/internal/game"
 )
 
 const (

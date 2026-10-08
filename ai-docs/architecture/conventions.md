@@ -3,7 +3,7 @@
 ## 命名
 
 - Go 包名使用小写单词：`game`、`match`、`protocol`、`ws`。
-- C# 命名空间使用 `Lscs.Client.Core.*` 和 `Lscs.Client.Godot.*`。
+- C# 命名空间使用 `Riftcards.Client.Core.*` 和 `Riftcards.Client.Godot.*`。
 - JSON 字段使用 `camelCase`。
 - 协议消息 `type` 使用小写点分形式，例如 `queue.join`、`match.events`。
 - 领域事件使用小写下划线形式，例如 `card_played`、`turn_started`。

@@ -5,7 +5,7 @@ config_version=5
 
 [application]
 
-config/name="LSCS"
+config/name="riftcards"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.4", "C#")
 
@@ -18,7 +18,7 @@ window/size/window_height_override=800
 
 [dotnet]
 
-project/assembly_name="Lscs.Client"
+project/assembly_name="Riftcards.Client"
 
 [rendering]
 

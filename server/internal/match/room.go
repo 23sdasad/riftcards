@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mjq/lscs/server/internal/game"
-	"github.com/mjq/lscs/server/internal/protocol"
+	"github.com/mjq/riftcards/server/internal/game"
+	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
 type Room struct {

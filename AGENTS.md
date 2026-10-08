@@ -7,7 +7,8 @@
 3. `ai-docs/architecture/conventions.md`
 4. `ai-docs/product/game-rules.md`
 5. `ai-docs/contracts/protocol.md`
-6. 与任务相关的测试和代码
+6. `ai-docs/task-index.md`
+7. 与任务相关的 task、测试和代码
 
 ## 强制约束
 
@@ -19,6 +20,13 @@
 - 回放以服务端事件日志为准，不从客户端 UI 状态反推。
 - 新增协议字段必须同步修改 Go DTO、C# DTO、`ai-docs/contracts/protocol.md` 和契约测试。
 - 新增或修改卡牌效果必须同步修改 `ai-docs/product/game-rules.md` 和引擎测试。
+
+## 任务工作方式
+
+- 非平凡改动先从 `ai-docs/task/_template.md` 建 task，并在 `ai-docs/task-index.md` 登记后再实现。
+- 范围变化先更新 task；任务完成时用可检查的验证证据更新 task 和索引。
+- 每个 commit 在消息中写清 `Task: NNN`、`Validation:` 和 `Cleanup:`，规则见 `ai-docs/standards/commits.md`。
+- task 记录单次工作的范围、决策和证据；长期规则沉淀回架构、协议或规范文档。
 
 ## 工程边界
 

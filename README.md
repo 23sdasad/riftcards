@@ -1,6 +1,6 @@
-# LSCS
+# riftcards
 
-LSCS 是一个两人回合制卡牌对战项目：
+riftcards 是一个两人回合制卡牌对战项目：
 
 - 客户端：Godot 4 + C#
 - 服务端：Go
@@ -18,6 +18,8 @@ LSCS 是一个两人回合制卡牌对战项目：
 - [技术栈](ai-docs/contracts/tech-stack.md)
 - [第三方库调研](ai-docs/contracts/library-research.md)
 - [AI 协作文档](ai-docs/README.md)
+- [任务工作流](ai-docs/task-index.md)
+- [提交规范](ai-docs/standards/commits.md)
 
 ## 目录
 
@@ -26,9 +28,12 @@ LSCS 是一个两人回合制卡牌对战项目：
 ├─ ai-docs/                 # 面向人和 AI 的长期事实来源
 │  ├─ product/              # 规则、路线图和产品边界
 │  ├─ architecture/         # 架构、约定和测试策略
-│  └─ contracts/            # 协议、技术栈和依赖调研
+│  ├─ contracts/            # 协议、技术栈和依赖调研
+│  ├─ standards/            # 长期工程规范
+│  ├─ task/                 # 单次任务的范围、决策与验证证据
+│  └─ task-index.md         # 任务队列与状态摘要
 ├─ server/                  # Go 权威服务端
-│  ├─ cmd/lscs-server/      # 服务入口
+│  ├─ cmd/riftcards-server/ # 服务入口
 │  └─ internal/             # game / match / protocol / transport
 ├─ client/                  # Godot C# 客户端
 │  ├─ src/Core/             # 与 Godot 解耦的协议和会话逻辑

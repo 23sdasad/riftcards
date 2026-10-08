@@ -2,9 +2,9 @@ version: "3"
 
 vars:
   SERVER_DIR: server
-  CORE_PROJECT: client/src/Core/Lscs.Client.Core.csproj
-  CLIENT_PROJECT: client/Lscs.Client.csproj
-  TEST_PROJECT: client/tests/Lscs.Client.Core.Tests/Lscs.Client.Core.Tests.csproj
+  CORE_PROJECT: client/src/Core/Riftcards.Client.Core.csproj
+  CLIENT_PROJECT: client/Riftcards.Client.csproj
+  TEST_PROJECT: client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
 
 tasks:
   default:
@@ -57,7 +57,7 @@ tasks:
   run:server:
     desc: Run the authoritative Go server
     cmds:
-      - cmd: go run ./cmd/lscs-server -addr 127.0.0.1:8080
+      - cmd: go run ./cmd/riftcards-server -addr 127.0.0.1:8080
         dir: "{{.SERVER_DIR}}"
 
   run:client:

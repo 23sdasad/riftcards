@@ -1,10 +1,10 @@
 using System.Linq;
 using Godot;
-using Lscs.Client.Core.Protocol;
-using Lscs.Client.Core.Session;
-using Lscs.Client.Godot;
+using Riftcards.Client.Core.Protocol;
+using Riftcards.Client.Core.Session;
+using Riftcards.Client.Godot;
 
-namespace Lscs.Client;
+namespace Riftcards.Client;
 
 public sealed partial class Main : Control
 {
@@ -52,7 +52,7 @@ public sealed partial class Main : Control
 
         var title = new Label
         {
-            Text = "LSCS",
+            Text = "riftcards",
         };
         root.AddChild(title);
 

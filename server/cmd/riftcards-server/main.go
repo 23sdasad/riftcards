@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mjq/lscs/server/internal/match"
-	"github.com/mjq/lscs/server/internal/transport/ws"
+	"github.com/mjq/riftcards/server/internal/match"
+	"github.com/mjq/riftcards/server/internal/transport/ws"
 )
 
 func main() {

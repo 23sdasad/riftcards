@@ -10,8 +10,8 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/mjq/lscs/server/internal/match"
-	"github.com/mjq/lscs/server/internal/protocol"
+	"github.com/mjq/riftcards/server/internal/match"
+	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
 const maxMessageBytes = 64 * 1024

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Lscs.Client.Core.Protocol;
+namespace Riftcards.Client.Core.Protocol;
 
 public static class ProtocolJson
 {

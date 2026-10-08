@@ -1,8 +1,8 @@
 using System.Text;
 using Godot;
-using Lscs.Client.Core.Session;
+using Riftcards.Client.Core.Session;
 
-namespace Lscs.Client.Godot;
+namespace Riftcards.Client.Godot;
 
 public sealed partial class GodotWebSocketTransport : Node, IMessageTransport
 {

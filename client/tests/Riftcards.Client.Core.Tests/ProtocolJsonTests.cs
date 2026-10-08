@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Lscs.Client.Core.Protocol;
+using Riftcards.Client.Core.Protocol;
 
-namespace Lscs.Client.Core.Tests;
+namespace Riftcards.Client.Core.Tests;
 
 public sealed class ProtocolJsonTests
 {

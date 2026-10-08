@@ -1,4 +1,4 @@
-module github.com/mjq/lscs/server
+module github.com/mjq/riftcards/server
 
 go 1.25.0
 

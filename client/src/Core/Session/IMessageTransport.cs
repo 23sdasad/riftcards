@@ -1,4 +1,4 @@
-namespace Lscs.Client.Core.Session;
+namespace Riftcards.Client.Core.Session;
 
 public interface IMessageTransport
 {
