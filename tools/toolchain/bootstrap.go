@@ -88,8 +88,35 @@ func runBootstrap(opts bootstrapOptions) error {
 	if err != nil {
 		return err
 	}
+	reportLLVMTools(cfg)
 	reportPaths(paths, envPath)
 	return nil
+}
+
+// llvmToolsOfInterest 是本项目关心的 LLVM 工具；用于确认官方发行物里实际包含哪些。
+var llvmToolsOfInterest = []string{
+	"clang", "clang-cl", "clang++", "lld", "lld-link", "llvm-ar", "llvm-rc",
+	"clang-format", "clang-tidy", "clangd",
+}
+
+// reportLLVMTools 在 .tools/llvm 中定位 clang-cl 所在目录，并列出工具清单。
+// 结果来自实际解压的文件，而不是假设。
+func reportLLVMTools(cfg *Config) {
+	clangCl, err := findLlvmClangCl(filepath.Join(cfg.ToolsDir, "llvm"))
+	if err != nil {
+		return
+	}
+	bin := filepath.Dir(clangCl)
+	fmt.Printf("LLVM 工具（%s）\n", relToRepo(bin))
+	for _, tool := range llvmToolsOfInterest {
+		name := tool + exeSuffix()
+		state := "缺失"
+		if info, err := os.Stat(filepath.Join(bin, name)); err == nil && !info.IsDir() {
+			state = "存在"
+		}
+		fmt.Printf("  %-12s %s\n", tool, state)
+	}
+	fmt.Println()
 }
 
 // cleanPartialDownloads 清掉上次被中断的 *.part，避免缓存目录里留下半成品。
