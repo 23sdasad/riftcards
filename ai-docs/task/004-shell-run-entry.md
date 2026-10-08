@@ -1,19 +1,21 @@
-# 004 — 跨平台 Shell 指令进程
+# 004 — 跨平台 Shell 指令进程（已取消）
 
-- 状态：planned
+- 状态：cancelled
 - 依赖：003
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
 
 ## 目标与背景
 
-删除 `Taskfile.yml` 后，本地格式化、lint、测试和运行暂时使用文档中的直接命令，缺少可复用的跨平台指令进程能力与统一失败提示。本任务把子进程启动和仓库命令做成稳定的 shell 层，让后续状态机、指令链路和测试任务能在 Windows、macOS、Linux 上使用一致的调用方式。
+本任务原计划在 `Taskfile.yml` 已删除的假设下，用代码建立跨平台子进程 API（参数数组、环境、标准输入输出、退出码、取消、超时和子进程树清理）。需求方随后更正为保留根目录 `Taskfile.yml`（见 [012](012-taskfile-command-entry.md)）：跨平台命令入口、环境检查和运行前检查都由 Taskfile 交付，本任务取消，原范围未实施。
+
+重启条件：只有业务代码真的需要以编程方式启动并管理子进程（取消、超时、进程树清理）时，才按 `_template.md` 新建 task；编号不复用。
 
 ## 必读
 
 [技术栈](../contracts/tech-stack.md) · [Path 与工程边界](../architecture/paths-and-boundaries.md) · [测试策略](../architecture/testing.md) · [提交规范](../standards/commits.md)。
 
-## 范围与非目标
+## 范围与非目标（原范围，未实施）
 
 交付：
 
@@ -83,7 +85,8 @@
 ## 决策与工作记录
 
 - 2026-10-08：创建任务。确认 shell 主要是跨平台指令进程层，覆盖 Windows、macOS、Linux，不处理 Godot 应用壳。
+- 2026-10-08：需求方更正 Taskfile 保留；命令入口、环境检查与运行前检查改由根目录 `Taskfile.yml` 交付，本任务取消（见 012）。
 
 ## 完成摘要
 
-未完成。
+已取消，未实施。统一命令入口、环境检查（`task env`）和运行前检查（`task run:*` 的前置条件）由恢复后的根目录 `Taskfile.yml` 提供，见 [012](012-taskfile-command-entry.md)。

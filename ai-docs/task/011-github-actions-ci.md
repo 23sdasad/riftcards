@@ -78,6 +78,7 @@
 
 - 2026-10-08：创建任务。确认 CI 文件路径为 `.github/workflows/ci.yml`，三平台运行同一门禁。
 - 2026-10-08：后续需求确认可删除 Taskfile；CI 的直接命令迁移由 012 接管。
+- 2026-10-08：需求方更正 Taskfile 保留。CI 回到同一 `Taskfile.yml` 入口（action 按 SHA 固定、`task bootstrap` + `task ci`），并修复 LLVM 安装步骤；见 [012](012-taskfile-command-entry.md)。
 
 ## 完成摘要
 

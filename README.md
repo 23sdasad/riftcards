@@ -34,6 +34,8 @@ riftcards 是一个两人回合制卡牌对战项目：
 │  ├─ standards/            # 长期工程规范
 │  ├─ task/                 # 单次任务的范围、决策与验证证据
 │  └─ task-index.md         # 任务队列与状态摘要
+├─ Taskfile.yml             # 跨平台统一命令入口（Go Task）
+├─ global.json              # 锁定的 .NET SDK 版本
 ├─ server/                  # Go 权威服务端
 │  ├─ cmd/riftcards-server/ # 服务入口
 │  └─ internal/             # game / match / protocol / transport
@@ -48,32 +50,37 @@ riftcards 是一个两人回合制卡牌对战项目：
 
 ## 本地命令
 
-工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 Go、.NET SDK 和带 .NET 支持的 Godot；跨平台统一 shell 由 task 004 提供，当前按以下直接命令执行。
+工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 Go、.NET SDK、带 .NET 支持的 Godot 和 [Go Task](https://taskfile.dev/installation/)，然后检查环境并安装锁定版本的 Go 工具。
 
 ```powershell
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-go install golang.org/x/vuln/cmd/govulncheck@latest
-
-gofmt -w server/cmd server/internal
-dotnet format client/src/Core/Riftcards.Client.Core.csproj
-dotnet format client/Riftcards.Client.csproj
-dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
-
-go -C server vet ./...
-go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...
-dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
-dotnet build client/Riftcards.Client.csproj --warnaserror
-
-go -C server test -race ./...
-dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
-
-go -C server run ./cmd/riftcards-server -addr 127.0.0.1:8080
-godot --path client --editor
+task env          # 检查工具与版本，列出每个缺失项、最低版本和安装入口
+task bootstrap    # 按锁定版本安装 golangci-lint、govulncheck
+task fmt          # 格式化 Go 与 C#
+task fmt:check    # 只读检查格式
+task lint         # go vet、golangci-lint、dotnet build --warnaserror
+task test         # go test -race、dotnet test
+task check        # fmt + lint + test
+task ci           # 只读门禁：fmt:check + lint + test，与 CI 相同
+task vuln         # govulncheck 依赖漏洞扫描
+task run:server   # 启动权威服务端
+task run:client   # 打开 Godot 客户端工程
 ```
 
-`go test -race` 与 cgo 使用仓库固定的 LLVM 23.1.3。Windows 需要按 [LLVM 工具链](tools/llvm/README.md)设置 `LLVM_MINGW_ROOT`、`CC` 和 `CXX`；Linux/macOS 使用 `CC=clang`、`CXX=clang++`。
+命令只在根目录 `Taskfile.yml` 定义，Windows、macOS、Linux 使用同一份定义，不经过平台专用脚本。`go test -race` 与 cgo 使用仓库固定的 LLVM 23.1.3：Windows 需要按 [LLVM 工具链](tools/llvm/README.md)设置 `LLVM_MINGW_ROOT`、`CC` 和 `CXX`；Linux/macOS 使用 `CC=clang`、`CXX=clang++`。
 
-`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上直接运行同一组 Go 与 .NET 门禁；仅修改文档时跳过完整构建。
+`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上执行同一 `task ci`，先按 `packages.lock.json` 以 `--locked-mode` 还原 NuGet 依赖；仅修改文档时跳过完整构建。
+
+版本锁定位置：
+
+| 依赖 | 权威文件 |
+| --- | --- |
+| Go 版本与 Go 依赖 | `server/go.mod`、`server/go.sum` |
+| .NET SDK | `global.json` |
+| NuGet 包与 Godot SDK 包 | `client/packages.lock.json`、`client/src/Core/packages.lock.json`、`client/tests/Riftcards.Client.Core.Tests/packages.lock.json` |
+| Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` |
+| LLVM | `tools/llvm/VERSION` |
+| Go Task、golangci-lint、govulncheck、最低工具版本 | `Taskfile.yml` |
+| CI 中的 Go Task、LLVM-MinGW、action commit | `.github/workflows/ci.yml` |
 
 服务端启动后监听 `http://127.0.0.1:8080`：
 

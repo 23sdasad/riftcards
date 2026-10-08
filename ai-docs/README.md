@@ -55,6 +55,6 @@ ai-docs/
 - 规则变化：更新 `product/game-rules.md`、引擎实现、引擎测试。
 - 协议变化：更新 `contracts/protocol.md`、Go DTO、C# DTO、协议测试。
 - 架构边界变化：更新 `architecture/overview.md`；路径或依赖边界变化同时更新 `architecture/paths-and-boundaries.md`。
-- 工具变化：更新 `contracts/tech-stack.md`、CI 和对应 task。
+- 工具变化：更新 `Taskfile.yml`、`global.json`、`contracts/tech-stack.md`、CI 和对应 task。
 - 新依赖：更新 `contracts/library-research.md`，说明替代方案和退出成本。
 - 非平凡工作：先建 task 并登记 `task-index.md`；每个 commit 同步 task 记录与验证结果。

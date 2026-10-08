@@ -24,7 +24,7 @@ ai-docs/
     ├── 009-event-queue-presentation.md
     ├── 010-local-end-to-end.md
     ├── 011-github-actions-ci.md
-    ├── 012-remove-taskfile.md
+    ├── 012-taskfile-command-entry.md
     └── 013-toolchain-gate-repair.md
 ```
 
@@ -53,13 +53,13 @@ ai-docs/
 | 001 | [riftcards 更名与 task 工作流基线](task/001-riftcards-rename-task-workflow.md) | — | done |
 | 002 | [Phase 1 本地完整对局：实施拆分与交互决策](task/002-phase-1-playable-match-plan.md) | 001 | done |
 | 003 | [跨平台 Path 与工程边界基线](task/003-path-boundaries.md) | 002 | done |
-| 004 | [跨平台 Shell 指令进程](task/004-shell-run-entry.md) | 003 | planned |
-| 005 | [对局与回合状态机](task/005-match-turn-state-machine.md) | 003 | planned |
-| 006 | [指令处理路径与错误边界](task/006-command-path-error-boundaries.md) | 004、005 | planned |
+| 004 | [跨平台 Shell 指令进程（已取消）](task/004-shell-run-entry.md) | 003 | cancelled |
+| 005 | [对局与回合状态机](task/005-match-turn-state-machine.md) | 003 | ready |
+| 006 | [指令处理路径与错误边界](task/006-command-path-error-boundaries.md) | 005 | planned |
 | 007 | [规则与协议验证基线](task/007-rule-protocol-validation.md) | 006 | planned |
 | 008 | [Godot 对局界面纵切](task/008-godot-match-ui.md) | 007 | planned |
 | 009 | [事件队列与表现层解耦](task/009-event-queue-presentation.md) | 008 | planned |
 | 010 | [本地端到端验收](task/010-local-end-to-end.md) | 007、008、009 | planned |
 | 011 | [GitHub Actions CI](task/011-github-actions-ci.md) | 001 | done |
-| 012 | [删除 Taskfile 并切换直接命令](task/012-remove-taskfile.md) | 011 | done |
+| 012 | [统一 Taskfile 命令入口与版本锁定](task/012-taskfile-command-entry.md) | 011 | done |
 | 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |

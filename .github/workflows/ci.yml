@@ -18,6 +18,15 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # 第三方 action 全部按 commit SHA 固定；Go Task 版本见 setup-task 步骤。
+  LLVM_MINGW_VERSION: "20260908"
+  LLVM_MINGW_URL: "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-x86_64.zip"
+  LLVM_MINGW_SHA256: "1bcf74d06b724aeecaa6412ca85f5b26fb1da770e7cdcefa9263c9c5c3ad34b6"
+  CGO_ENABLED: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "true"
+
 jobs:
   verify:
     name: verify (${{ matrix.os }})
@@ -27,55 +36,51 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    env:
-      CGO_ENABLED: "1"
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "true"
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Read LLVM version
-        id: llvm-version
-        shell: bash
-        run: echo "version=$(cat tools/llvm/VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Install LLVM
-        uses: KyleMayes/install-llvm-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          version: ${{ steps.llvm-version.outputs.version }}
-          directory: ${{ runner.temp }}/llvm
+          persist-credentials: false
 
-      - name: Configure LLVM compiler (Unix)
+      - name: Configure C compiler (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           echo "CC=clang" >> "$GITHUB_ENV"
           echo "CXX=clang++" >> "$GITHUB_ENV"
 
-      - name: Configure LLVM compiler (Windows)
+      - name: Install LLVM-MinGW (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $archive = Join-Path $env:RUNNER_TEMP "llvm-mingw.zip"
           $directory = Join-Path $env:RUNNER_TEMP "llvm-mingw"
-          Invoke-WebRequest `
-            -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-x86_64.zip" `
-            -OutFile $archive
+          Invoke-WebRequest -Uri "$env:LLVM_MINGW_URL" -OutFile $archive
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLower()
+          if ($actual -ne $env:LLVM_MINGW_SHA256) {
+            throw "LLVM-MinGW $env:LLVM_MINGW_VERSION SHA256 mismatch: $actual"
+          }
           Expand-Archive -LiteralPath $archive -DestinationPath $directory
           $root = Get-ChildItem -LiteralPath $directory -Directory |
             Select-Object -First 1 -ExpandProperty FullName
           "LLVM_MINGW_ROOT=$root" >> $env:GITHUB_ENV
-          "LLVM_CLANG_CL=clang-cl" >> $env:GITHUB_ENV
+          "LLVM_CLANG_CL=C:\Program Files\LLVM\bin\clang-cl.exe" >> $env:GITHUB_ENV
           "CC=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
           "CXX=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
+          "C:\Program Files\LLVM\bin" >> $env:GITHUB_PATH
 
-      - name: Verify LLVM tools
+      - name: Report pinned tool versions
         shell: bash
         run: |
-          clang --version
-          clang-format --version
-          clang-tidy --version
-          clangd --version
+          echo "go.mod:      $(sed -n 's/^go //p' server/go.mod)"
+          echo "global.json: $(tr -d ' \n' < global.json)"
+          echo "llvm/VERSION: $(cat tools/llvm/VERSION)"
+          for tool in clang clang-format clang-tidy clangd; do
+            if command -v "$tool" >/dev/null 2>&1; then
+              echo "$tool: $("$tool" --version | sed -n 1p)"
+            else
+              echo "::warning::$tool 不在 runner PATH 中；本平台跳过对应的 C/C++ 检查"
+            fi
+          done
 
       - name: Check C/C++ with LLVM
         shell: bash
@@ -86,6 +91,9 @@ jobs:
             echo "No C/C++ sources to check."
             exit 0
           fi
+          for tool in clang-format clang-tidy; do
+            command -v "$tool" >/dev/null 2>&1 || { echo "::error::$tool 缺失，无法检查 C/C++ 源文件"; exit 1; }
+          done
           while IFS= read -r source; do
             clang-format --dry-run --Werror "$source"
             case "$source" in
@@ -99,61 +107,39 @@ jobs:
             clang-tidy "$source" -- "-std=$language_standard"
           done < "$sources_file"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
-          dotnet-version: "8.0.x"
+          global-json-file: global.json
 
-      - name: Install golangci-lint
+      - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2
+        with:
+          version: "3.54.0"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install pinned Go tools
         shell: bash
         run: |
-          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+          task bootstrap
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('client/**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('client/**/packages.lock.json', 'client/**/*.csproj') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      - name: Format check (Go)
-        shell: bash
-        working-directory: server
-        run: |
-          unformatted="$(gofmt -l ./cmd ./internal)"
-          if [ -n "$unformatted" ]; then
-            printf 'Unformatted Go files:\n%s\n' "$unformatted"
-            exit 1
-          fi
-
-      - name: Go vet
-        working-directory: server
-        run: go vet ./...
-
-      - name: Go lint
-        working-directory: server
-        run: golangci-lint run ./...
-
-      - name: C# build
+      - name: Restore locked NuGet dependencies
         shell: bash
         run: |
-          dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
-          dotnet build client/Riftcards.Client.csproj --warnaserror
+          dotnet restore client/src/Core/Riftcards.Client.Core.csproj --locked-mode
+          dotnet restore client/Riftcards.Client.csproj --locked-mode
+          dotnet restore client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj --locked-mode
 
-      - name: C# format check
-        shell: bash
-        run: |
-          dotnet format client/src/Core/Riftcards.Client.Core.csproj --verify-no-changes
-          dotnet format client/Riftcards.Client.csproj --verify-no-changes
-          dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj --verify-no-changes
-
-      - name: Go test
-        working-directory: server
-        run: go test -race ./...
-
-      - name: C# test
-        run: dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+      - name: Run repository gate
+        run: task ci

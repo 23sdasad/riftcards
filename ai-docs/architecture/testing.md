@@ -33,22 +33,21 @@
 
 ## 命令
 
+所有门禁命令从仓库根目录 `Taskfile.yml` 进入，Windows、macOS、Linux 共用同一份定义：
+
 ```powershell
-gofmt -w server/cmd server/internal
-dotnet format client/src/Core/Riftcards.Client.Core.csproj
-dotnet format client/Riftcards.Client.csproj
-dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
-
-go -C server vet ./...
-go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...
-dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
-dotnet build client/Riftcards.Client.csproj --warnaserror
-
-go -C server test -race ./...
-dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+task env          # 环境检查：工具名、最低版本、安装入口
+task bootstrap    # 安装锁定版本的 golangci-lint、govulncheck
+task fmt          # 写入格式化
+task fmt:check    # 只读格式检查
+task lint         # go vet、golangci-lint、dotnet build --warnaserror
+task test         # go test -race、dotnet test
+task check        # fmt + lint + test（本地完整门禁）
+task ci           # fmt:check + lint + test（只读，与 CI 相同）
+task vuln         # govulncheck 依赖漏洞扫描
 ```
 
-跨平台统一 shell 由 task 004 提供；在此之前以上命令是当前权威入口。端到端测试在工具链可用后使用固定端口和测试房间；测试结束后必须关闭服务进程。
+端到端测试在工具链可用后使用固定端口和测试房间；测试结束后必须关闭服务进程。
 
 `go test -race` 使用仓库固定的 LLVM 23.1.3。Windows 通过 `tools/llvm/clang-cl.cmd` 调用官方 `clang-cl` 和 LLVM-MinGW UCRT 运行库；Linux/macOS 使用对应平台的 `clang`。版本和本地环境变量见[LLVM 工具链](../../tools/llvm/README.md)。
 
@@ -56,12 +55,13 @@ dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests
 
 `.github/workflows/ci.yml` 在 `ubuntu-latest`、`windows-latest`、`macos-latest` 上执行：
 
-1. 安装并校验固定的 LLVM 编译器与 `clang-format`、`clang-tidy`、`clangd`。
-2. Go `gofmt` 只读检查。
-3. Go `vet`、`golangci-lint` 和 C# 构建、格式检查。
-4. Go race 测试和 C# xUnit 测试。
+1. 用按 commit SHA 固定的 action 准备 Go（版本取自 `server/go.mod`）、.NET SDK（`global.json`）和 Go Task 3.54.0。
+2. Windows 下载固定版本并校验 SHA256 的 LLVM-MinGW，使用 runner 自带的 `clang-cl`；Unix 使用 runner 自带的 `clang`，实际版本打印在日志中。
+3. `task bootstrap` 安装锁定版本的 Go 工具。
+4. 以 `dotnet restore --locked-mode` 按 `packages.lock.json` 校验 NuGet 依赖。
+5. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、Go race 测试和 C# xUnit 测试。
 
-纯文档改动通过 `paths-ignore` 跳过完整构建。Godot 图形化测试和 010 定义的本地端到端测试暂不进入该 workflow。
+纯文档改动通过 `paths-ignore` 跳过完整构建。仓库当前没有 C/C++ 源码，因此 `clang-format`/`clang-tidy` 检查只在存在源文件且工具可用时执行。Godot 图形化测试和 010 定义的本地端到端测试暂不进入该 workflow。
 
 ## 完成标准
 

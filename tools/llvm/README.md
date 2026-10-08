@@ -10,6 +10,12 @@
 - `clang-tidy`
 - `clangd`
 
+版本来源与 CI 行为：
+
+- `VERSION` 是版本号唯一事实来源；本地按该版本安装，`task env` 会检查这些工具是否可用。
+- CI 不再用第三方 action 安装 LLVM：上游 action 的资产表没有 `23.1.3`，而完整发行包在 Linux 上约 2 GB，因此 CI 改为在 Unix 使用 runner 自带的 `clang`（版本打印到日志），Windows 下载并校验 SHA256 的 LLVM-MinGW `20260908`，`clang-cl` 取自 runner 自带 LLVM。
+- 结论：CI 保证 cgo 编译可用并能查到工具版本；需要严格 `23.1.3` 的本地或发布验证必须按 `VERSION` 安装。
+
 Windows 本地验证前设置：
 
 ```powershell

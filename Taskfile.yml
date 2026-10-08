@@ -1,0 +1,213 @@
+version: "3"
+
+# 仓库命令的唯一入口。Task 在 Windows、macOS、Linux 上使用同一个内置 POSIX
+# 解释器执行下面的命令，因此不需要平台专用脚本或分支；`dir` 只在任务级别生效。
+# 版本口径与锁定位置见 ai-docs/contracts/tech-stack.md。
+
+vars:
+  SERVER_DIR: server
+  CORE_PROJECT: client/src/Core/Riftcards.Client.Core.csproj
+  CLIENT_PROJECT: client/Riftcards.Client.csproj
+  TEST_PROJECT: client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
+  GOLANGCI_LINT_VERSION: v2.14.0
+  GOVULNCHECK_VERSION: v1.1.4
+  GO_MIN_VERSION: 1.25
+  DOTNET_MIN_VERSION: 8.0
+  GODOT_VERSION: 4.7.2
+  LLVM_VERSION: 23.1.3
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  bootstrap:
+    desc: Install repository-local Go tools at pinned versions
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+    cmds:
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+      - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
+
+  env:
+    desc: Check required local tools, print versions and report every missing tool
+    cmds:
+      - |
+        missing=0
+        check() {
+          name="$1"
+          requirement="$2"
+          install="$3"
+          version_command="$4"
+          if ! command -v "$name" >/dev/null 2>&1; then
+            printf 'MISSING  %-14s 需要 %s；安装入口 %s\n' "$name" "$requirement" "$install"
+            missing=1
+            return 0
+          fi
+          version="$(eval "$version_command" 2>&1)"
+          printf '%s\n' "$version" | while IFS= read -r first_line; do
+            printf 'OK       %-14s %s\n' "$name" "$first_line"
+            break
+          done
+        }
+        check go            "Go {{.GO_MIN_VERSION}}+（权威版本见 server/go.mod）" "https://go.dev/dl/" "go version"
+        check dotnet        ".NET SDK {{.DOTNET_MIN_VERSION}}+（权威版本见 global.json）" "https://dotnet.microsoft.com/download" "dotnet --version"
+        check godot         "Godot {{.GODOT_VERSION}} .NET 版" "https://godotengine.org/download" "godot --version"
+        check clang         "LLVM {{.LLVM_VERSION}}（Windows cgo 见 tools/llvm/clang-cl.cmd）" "tools/llvm/README.md" "clang --version"
+        check clang-format  "LLVM {{.LLVM_VERSION}}" "tools/llvm/README.md" "clang-format --version"
+        check clang-tidy    "LLVM {{.LLVM_VERSION}}" "tools/llvm/README.md" "clang-tidy --version"
+        check clangd        "LLVM {{.LLVM_VERSION}}" "tools/llvm/README.md" "clangd --version"
+        check golangci-lint "{{.GOLANGCI_LINT_VERSION}}（task bootstrap）" "task bootstrap" "golangci-lint version"
+        check govulncheck   "{{.GOVULNCHECK_VERSION}}（task bootstrap）" "task bootstrap" "govulncheck -version"
+        check task          "Go Task 3.x" "https://taskfile.dev/installation/" "task --version"
+        if [ "$missing" -ne 0 ]; then
+          printf '环境检查失败：先安装上面标记为 MISSING 的工具。\n' >&2
+          exit 1
+        fi
+
+  fmt:
+    desc: Format Go and C# sources
+    cmds:
+      - task: fmt:go
+      - task: fmt:cs
+
+  fmt:go:
+    desc: Format Go sources
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+    cmds:
+      - gofmt -w ./cmd ./internal
+
+  fmt:cs:
+    desc: Format C# sources
+    preconditions:
+      - sh: command -v dotnet
+        msg: "缺少 .NET SDK {{.DOTNET_MIN_VERSION}}+：安装入口 https://dotnet.microsoft.com/download"
+    cmds:
+      - dotnet format {{.CORE_PROJECT}}
+      - dotnet format {{.CLIENT_PROJECT}}
+      - dotnet format {{.TEST_PROJECT}}
+
+  fmt:check:
+    desc: Verify Go and C# formatting without writing
+    cmds:
+      - task: fmt:check:go
+      - task: fmt:check:cs
+
+  fmt:check:go:
+    desc: Verify Go formatting
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+    cmds:
+      - |
+        unformatted="$(gofmt -l ./cmd ./internal)"
+        if [ -n "$unformatted" ]; then
+          printf '未格式化的 Go 文件：\n%s\n' "$unformatted" >&2
+          exit 1
+        fi
+
+  fmt:check:cs:
+    desc: Verify C# formatting
+    preconditions:
+      - sh: command -v dotnet
+        msg: "缺少 .NET SDK {{.DOTNET_MIN_VERSION}}+：安装入口 https://dotnet.microsoft.com/download"
+    cmds:
+      - dotnet format {{.CORE_PROJECT}} --verify-no-changes
+      - dotnet format {{.CLIENT_PROJECT}} --verify-no-changes
+      - dotnet format {{.TEST_PROJECT}} --verify-no-changes
+
+  lint:
+    desc: Run Go static analysis and C# builds
+    cmds:
+      - task: lint:go
+      - task: lint:cs
+
+  lint:go:
+    desc: Run Go vet and golangci-lint
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+      - sh: command -v golangci-lint
+        msg: "缺少 golangci-lint {{.GOLANGCI_LINT_VERSION}}：先运行 task bootstrap"
+    cmds:
+      - go vet ./...
+      - golangci-lint run ./...
+
+  lint:cs:
+    desc: Build C# projects with warnings as errors
+    preconditions:
+      - sh: command -v dotnet
+        msg: "缺少 .NET SDK {{.DOTNET_MIN_VERSION}}+：安装入口 https://dotnet.microsoft.com/download"
+    cmds:
+      - dotnet build {{.CORE_PROJECT}} --warnaserror
+      - dotnet build {{.CLIENT_PROJECT}} --warnaserror
+
+  test:
+    desc: Run Go race tests and C# unit tests
+    cmds:
+      - task: test:go
+      - task: test:cs
+
+  test:go:
+    desc: Run Go tests with the race detector
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+    cmds:
+      - go test -race ./...
+
+  test:cs:
+    desc: Run C# unit tests
+    preconditions:
+      - sh: command -v dotnet
+        msg: "缺少 .NET SDK {{.DOTNET_MIN_VERSION}}+：安装入口 https://dotnet.microsoft.com/download"
+    cmds:
+      - dotnet test {{.TEST_PROJECT}}
+
+  check:
+    desc: Format, lint and test locally
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+
+  ci:
+    desc: Read-only full gate used by CI
+    cmds:
+      - task: fmt:check
+      - task: lint
+      - task: test
+
+  run:server:
+    desc: Run the authoritative Go server
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v go
+        msg: "缺少 Go {{.GO_MIN_VERSION}}+：安装入口 https://go.dev/dl/"
+    cmds:
+      - go run ./cmd/riftcards-server -addr 127.0.0.1:8080
+
+  run:client:
+    desc: Open the Godot client project
+    preconditions:
+      - sh: command -v godot
+        msg: "缺少 Godot {{.GODOT_VERSION}} .NET 版：安装入口 https://godotengine.org/download"
+    cmds:
+      - godot --path ./client --editor
+
+  vuln:
+    desc: Scan Go dependencies for known vulnerabilities
+    dir: "{{.SERVER_DIR}}"
+    preconditions:
+      - sh: command -v govulncheck
+        msg: "缺少 govulncheck {{.GOVULNCHECK_VERSION}}：先运行 task bootstrap"
+    cmds:
+      - govulncheck ./...

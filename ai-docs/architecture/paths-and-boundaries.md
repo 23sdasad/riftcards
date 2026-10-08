@@ -7,7 +7,7 @@
 当前实现：
 
 - `server/internal/platform/pathutil` 提供与运行主机无关的 Windows、macOS、Linux 路径解析、规范化、拼接、比较和词法 confinement。
-- 业务代码尚未引入 shell 进程层；统一命令入口由 task 004 实现。
+- 仓库命令入口是根目录 `Taskfile.yml`；业务代码仍然不引入 shell 进程层。
 
 目标边界：
 
@@ -54,11 +54,12 @@
 | 类别 | 权威路径 | 约定 |
 | --- | --- | --- |
 | 入口文档 | `README.md`、`AGENTS.md` | 人和自动化代理的仓库入口 |
+| 命令入口 | `Taskfile.yml`、`global.json` | 统一 `task` 命令入口与 .NET SDK 锁定 |
 | AI 事实来源 | `ai-docs/` | 长期规则、协议、架构、规范和 task |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
-| 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/` | Godot 工程、Core/Godot 分层和纯 .NET 测试 |
+| 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/`、`client/**/packages.lock.json` | Godot 工程、Core/Godot 分层、纯 .NET 测试和 NuGet 锁定 |
 | LLVM 工具链 | `tools/llvm/`、`.clang-format`、`.clang-tidy` | 固定编译器版本、Windows `clang-cl` 入口和检查规则 |
-| CI | `.github/workflows/ci.yml` | Windows、macOS、Linux 直接执行同一门禁 |
+| CI | `.github/workflows/ci.yml` | Windows、macOS、Linux 执行同一 `task ci` 门禁 |
 
 生成或机器相关目录不得作为源码事实来源，也不得提交：
 
@@ -125,8 +126,8 @@ pathutil -> Go 标准库
 路径改动提交前至少执行：
 
 ```powershell
+task test
 go -C server test ./internal/platform/pathutil
-go -C server test ./...
 git diff --check
 ```
 

@@ -41,6 +41,6 @@
 
 ## 完成任务前
 
-按 `ai-docs/architecture/testing.md` 的“本地门禁”直接运行 Go 与 .NET 格式化、静态检查和测试。跨平台统一 shell 由 task 004 引入，在此之前直接执行各工具命令。
+在仓库根目录使用统一入口：`task fmt`、`task lint`、`task test`，或一次运行 `task check`；只读校验用 `task ci`。缺少工具时先运行 `task env`，它会列出缺失工具、最低版本和安装入口。完整口径见 `ai-docs/architecture/testing.md`。
 
 若本机缺少 Godot、Go 或 .NET SDK，必须明确记录未执行的检查，不能把未验证内容描述为已验证。

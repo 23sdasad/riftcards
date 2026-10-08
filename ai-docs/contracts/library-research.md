@@ -73,8 +73,8 @@
 采用三层：
 
 1. 编辑器层：`.editorconfig` 统一换行、缩进、字符集。
-2. 本地命令层：当前直接使用 Go、.NET 和 lint 工具；跨平台统一 shell 由 task 004 提供。
-3. CI 层：直接复用同一组命令，只增加缓存。
+2. 本地任务层：根目录 `Taskfile.yml` 提供 `fmt`、`fmt:check`、`lint`、`test`、`check`、`ci`，并使用 Go Task 3.54.0。
+3. CI 层：调用同一组 `task` 命令，只增加锁文件校验、缓存和三平台矩阵。
 
 Go：
 
