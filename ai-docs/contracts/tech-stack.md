@@ -89,15 +89,15 @@ task run:client
 
 服务端默认监听 `127.0.0.1:8080`，客户端默认连接 `ws://127.0.0.1:8080/ws`。
 
-## CI 建议
+## GitHub Actions CI
 
-CI 至少分三个阶段：
+`.github/workflows/ci.yml` 在 Windows、macOS、Linux 三平台运行同一门禁：
 
-1. `task fmt` 的只读校验：`gofmt -l`、`dotnet format --verify-no-changes`。
+1. Go 格式只读检查：`gofmt -l`。
 2. `task lint`：`go vet`、`golangci-lint`、`dotnet build --warnaserror`。
 3. `task test`：`go test -race`、`dotnet test`。
 
-Godot 编辑器导入和场景测试作为独立 job，避免所有改动都依赖图形工具。
+CI 使用固定版本的 Go、.NET SDK 和 Go Task，配置最小权限、并发取消、超时和 NuGet 缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
 
 ## 暂不接入
 

@@ -39,6 +39,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 │  ├─ src/Core/             # 与 Godot 解耦的协议和会话逻辑
 │  ├─ src/Godot/            # Godot WebSocket 适配层
 │  └─ tests/                # 纯 .NET 单元测试
+├─ .github/workflows/       # GitHub Actions 三平台 CI
 ├─ AGENTS.md                # 后续 AI/自动化代理必须遵守的入口
 └─ Taskfile.yml             # 格式化、lint、测试、运行命令
 ```
@@ -55,6 +56,8 @@ task test
 task run:server
 task run:client
 ```
+
+`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上运行 Go 格式检查、`task lint` 和 `task test`；仅修改文档时跳过完整构建。
 
 服务端启动后监听 `http://127.0.0.1:8080`：
 
