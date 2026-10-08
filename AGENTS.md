@@ -5,10 +5,11 @@
 1. `ai-docs/README.md`
 2. `ai-docs/architecture/overview.md`
 3. `ai-docs/architecture/conventions.md`
-4. `ai-docs/product/game-rules.md`
-5. `ai-docs/contracts/protocol.md`
-6. `ai-docs/task-index.md`
-7. 与任务相关的 task、测试和代码
+4. `ai-docs/architecture/paths-and-boundaries.md`
+5. `ai-docs/product/game-rules.md`
+6. `ai-docs/contracts/protocol.md`
+7. `ai-docs/task-index.md`
+8. 与任务相关的 task、测试和代码
 
 ## 强制约束
 
@@ -34,6 +35,7 @@
 - `server/internal/match`：房间、队列、串行结算和广播。
 - `server/internal/transport/ws`：WebSocket 读写，不包含规则。
 - `server/internal/protocol`：传输 DTO 和错误码。
+- `server/internal/platform/pathutil`：跨平台路径语义，不依赖宿主系统或上层模块。
 - `client/src/Core`：纯 .NET 协议、会话和回放逻辑，不依赖 Godot。
 - `client/src/Godot`：Godot API 适配，不包含规则判断。
 

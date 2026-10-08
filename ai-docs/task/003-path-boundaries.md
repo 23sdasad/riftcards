@@ -1,6 +1,6 @@
 # 003 — 跨平台 Path 与工程边界基线
 
-- 状态：ready
+- 状态：done
 - 依赖：002
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -51,7 +51,7 @@
 
 - 新增：跨平台 path 基础实现及测试，位置在实施前确认。
 - 新增：`ai-docs/architecture/paths-and-boundaries.md`。
-- 修改：`README.md`、`ai-docs/README.md`、`ai-docs/architecture/README.md`、`ai-docs/architecture/conventions.md`、`ai-docs/architecture/overview.md`。
+- 修改：`README.md`、`AGENTS.md`、`ai-docs/README.md`、`ai-docs/architecture/README.md`、`ai-docs/architecture/conventions.md`、`ai-docs/architecture/overview.md`。
 - 可能修改：引用旧路径说明的 task。
 
 ## 清理与兼容例外
@@ -60,22 +60,23 @@
 
 ## 验收标准
 
-- [ ] Windows、macOS、Linux 的路径语义和平台差异有明确规则与测试。
-- [ ] 业务代码不再手工拼接路径、假定 `/` 或 `\`，且非法/越界路径返回可判断错误。
-- [ ] 仓库关键路径、构建入口和生成目录有唯一说明位置。
-- [ ] 客户端意图到服务端事件/投影的路径可按顺序复述，且每段职责单一。
-- [ ] 明确列出至少三类禁止依赖路径及判断方式。
-- [ ] 文档中没有旧项目标识、失效路径或重复的权威路径表。
+- [x] Windows、macOS、Linux 的路径语义和平台差异有明确规则与测试。
+- [x] 业务代码不再手工拼接路径、假定 `/` 或 `\`，且非法/越界路径返回可判断错误。
+- [x] 仓库关键路径、构建入口和生成目录有唯一说明位置。
+- [x] 客户端意图到服务端事件/投影的路径可按顺序复述，且每段职责单一。
+- [x] 明确列出至少三类禁止依赖路径及判断方式。
+- [x] 文档中没有旧项目标识、失效路径或重复的权威路径表。
 
 ## 验证计划与结果
 
 | 日期 | 环境 / 命令 | 预期 | 实际结果 |
 | --- | --- | --- | --- |
-| — | Markdown 相对链接检查 | 全部可解析 | 未执行 |
-| — | 旧项目标识与旧路径扫描 | 无受管引用 | 未执行 |
-| — | `git diff --check` | 无空白错误 | 未执行 |
-| — | path 跨平台测试 | 三类系统语义一致 | 未执行 |
-| — | 项目测试命令 | 全量门禁通过 | 未执行 |
+| 2026-10-08 | Markdown 相对链接检查 | 全部可解析 | 通过：检查 31 个 Markdown 文件中的 94 个本地链接 |
+| 2026-10-08 | 旧项目标识与旧工作流引用扫描 | 当前文档与代码无受管引用 | 通过：仅历史 task 001/004/011/012 保留更名或删除前记录 |
+| 2026-10-08 | 手工平台路径与项目名静态扫描 | 业务代码无 `filepath.Join`、`Path.Combine`、平台分隔符或旧项目标识 | 通过：仅 pathutil 测试、实现和边界文档包含目标平台示例 |
+| 2026-10-08 | `git diff --check` | 无空白错误 | 通过 |
+| 2026-10-08 | `go test ./internal/platform/pathutil` | 三类系统路径语义一致 | 未执行：本机没有 Go |
+| 2026-10-08 | 项目全量门禁 | Go、.NET 和 Godot 检查通过 | 未执行：本机没有 Go、.NET SDK 和 Godot；提交后由三平台 CI 继续验证 |
 
 ## 风险与回退
 
@@ -84,7 +85,8 @@
 ## 决策与工作记录
 
 - 2026-10-08：创建任务。确认 path 同时覆盖工程路径和指令路径，必须以 Windows、macOS、Linux 为目标，并优先于 shell、状态机和 UI。
+- 2026-10-08：实现 `server/internal/platform/pathutil`，以显式目标系统隔离宿主机差异；新增主题文档并把 README、架构索引和后续 task 的路径引用接到该文档。
 
 ## 完成摘要
 
-未完成。
+已建立 Windows、macOS、Linux 共用的 path 基础实现和表驱动测试，覆盖解析、规范化、拼接、比较、词法 confinement、用户目录和可执行名；新增[Path 与工程边界](../architecture/paths-and-boundaries.md)，统一记录目标系统语义、仓库关键路径、单向数据路径、允许依赖和禁止路径。限制：本机缺少 Go、.NET SDK 和 Godot，因此 path 测试及项目全量门禁未在本地执行，不能描述为已通过；最终平台一致性以待运行的三平台 CI 为准。

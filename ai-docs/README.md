@@ -22,6 +22,7 @@ ai-docs/
 │  ├─ README.md
 │  ├─ overview.md
 │  ├─ conventions.md
+│  ├─ paths-and-boundaries.md
 │  └─ testing.md
 ├─ contracts/               # 对外协议与技术选型
 │  ├─ README.md
@@ -42,17 +43,18 @@ ai-docs/
 1. `product/game-rules.md`：玩法唯一事实来源。
 2. `contracts/protocol.md`：WebSocket 消息唯一事实来源。
 3. `architecture/overview.md`：系统边界、数据流、权威状态与回放模型。
-4. `architecture/conventions.md`：命名、协议、错误、日志和代码组织约定。
-5. `architecture/testing.md`：测试层次、必测场景和验证命令。
-6. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
-7. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
-8. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
+4. `architecture/paths-and-boundaries.md`：路径语义、关键目录、允许依赖和禁止路径。
+5. `architecture/conventions.md`：命名、协议、错误、日志和代码组织约定。
+6. `architecture/testing.md`：测试层次、必测场景和验证命令。
+7. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
+8. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
+9. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
 
 ## 文档更新规则
 
 - 规则变化：更新 `product/game-rules.md`、引擎实现、引擎测试。
 - 协议变化：更新 `contracts/protocol.md`、Go DTO、C# DTO、协议测试。
-- 架构边界变化：更新 `architecture/overview.md`，必要时新增 ADR。
+- 架构边界变化：更新 `architecture/overview.md`；路径或依赖边界变化同时更新 `architecture/paths-and-boundaries.md`。
 - 工具变化：更新 `contracts/tech-stack.md`、CI 和对应 task。
 - 新依赖：更新 `contracts/library-research.md`，说明替代方案和退出成本。
 - 非平凡工作：先建 task 并登记 `task-index.md`；每个 commit 同步 task 记录与验证结果。

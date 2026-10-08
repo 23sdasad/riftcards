@@ -11,7 +11,7 @@
 
 ## 必读
 
-[技术栈](../contracts/tech-stack.md) · [Path 与工程边界](003-path-boundaries.md) · [测试策略](../architecture/testing.md) · [提交规范](../standards/commits.md)。
+[技术栈](../contracts/tech-stack.md) · [Path 与工程边界](../architecture/paths-and-boundaries.md) · [测试策略](../architecture/testing.md) · [提交规范](../standards/commits.md)。
 
 ## 范围与非目标
 

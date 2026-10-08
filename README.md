@@ -17,6 +17,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 - [WebSocket 协议](ai-docs/contracts/protocol.md)
 - [技术栈](ai-docs/contracts/tech-stack.md)
 - [第三方库调研](ai-docs/contracts/library-research.md)
+- [Path 与工程边界](ai-docs/architecture/paths-and-boundaries.md)
 - [AI 协作文档](ai-docs/README.md)
 - [任务工作流](ai-docs/task-index.md)
 - [提交规范](ai-docs/standards/commits.md)

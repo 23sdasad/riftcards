@@ -11,7 +11,7 @@
 
 ## 必读
 
-[协议](../contracts/protocol.md) · [Path 与工程边界](003-path-boundaries.md) · [对局与回合状态机](005-match-turn-state-machine.md) · [测试策略](../architecture/testing.md)。
+[协议](../contracts/protocol.md) · [Path 与工程边界](../architecture/paths-and-boundaries.md) · [对局与回合状态机](005-match-turn-state-machine.md) · [测试策略](../architecture/testing.md)。
 
 ## 范围与非目标
 

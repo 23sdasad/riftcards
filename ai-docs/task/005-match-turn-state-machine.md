@@ -11,7 +11,7 @@
 
 ## 必读
 
-[游戏规则](../product/game-rules.md) · [架构总览](../architecture/overview.md) · [Path 与工程边界](003-path-boundaries.md) · [测试策略](../architecture/testing.md)。
+[游戏规则](../product/game-rules.md) · [架构总览](../architecture/overview.md) · [Path 与工程边界](../architecture/paths-and-boundaries.md) · [测试策略](../architecture/testing.md)。
 
 ## 范围与非目标
 
