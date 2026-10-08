@@ -44,17 +44,27 @@ riftcards 是一个两人回合制卡牌对战项目：
 │  ├─ src/Godot/            # Godot WebSocket 适配层
 │  └─ tests/                # 纯 .NET 单元测试
 ├─ .github/workflows/       # GitHub Actions 三平台 CI
-├─ tools/llvm/              # 固定 LLVM 编译器、clang-cl 包装器和检查工具说明
+├─ tools/                   # 仓库工具
+│  ├─ toolchain/            # 用 Go 获取全部依赖（独立 Go 模块）
+│  └─ llvm/                 # LLVM 版本文件、clang-cl 包装器与说明
+├─ .tools/                  # 引导器安装的本地依赖（git 忽略，可随时删除重装）
 └─ AGENTS.md                # 后续 AI/自动化代理必须遵守的入口
 ```
 
-## 本地命令
+## 依赖与本地命令
 
-工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 Go、.NET SDK、带 .NET 支持的 Godot 和 [Go Task](https://taskfile.dev/installation/)，然后检查环境并安装锁定版本的 Go 工具。
+全部依赖的版本、下载地址和校验哈希只在 [Taskfile.yml](Taskfile.yml) 的 `vars:` 声明一次。**开发者只需要本机有 Go**，其余依赖（Go Task、golangci-lint、govulncheck、.NET SDK、Godot、Windows LLVM 与 LLVM-MinGW、NuGet 包）由 [tools/toolchain](tools/toolchain) 用 Go 获取到仓库内 `.tools/`：
 
 ```powershell
-task env          # 检查工具与版本，列出每个缺失项、最低版本和安装入口
-task bootstrap    # 按锁定版本安装 golangci-lint、govulncheck
+go -C tools/toolchain run . bootstrap   # 首次引导；此命令不依赖 task
+task env                                # 检查依赖与版本，列出缺失项和安装入口
+task check                              # 本地完整门禁
+```
+
+引导完成后即可使用统一入口（Windows、macOS、Linux 同一份定义）：
+
+```powershell
+task bootstrap    # 与首次引导等价；可用 task bootstrap -- --without godot 跳过组件
 task fmt          # 格式化 Go 与 C#
 task fmt:check    # 只读检查格式
 task lint         # go vet、golangci-lint、dotnet build --warnaserror
@@ -66,21 +76,21 @@ task run:server   # 启动权威服务端
 task run:client   # 打开 Godot 客户端工程
 ```
 
-命令只在根目录 `Taskfile.yml` 定义，Windows、macOS、Linux 使用同一份定义，不经过平台专用脚本。`go test -race` 与 cgo 使用仓库固定的 LLVM 23.1.3：Windows 需要按 [LLVM 工具链](tools/llvm/README.md)设置 `LLVM_MINGW_ROOT`、`CC` 和 `CXX`；Linux/macOS 使用 `CC=clang`、`CXX=clang++`。
+`.tools/` 已被 git 忽略，删除它即可完全重来。`.tools/toolchain.env` 记录各依赖的实际路径，Taskfile 通过它把 `CC`、`CXX`、`DOTNET_ROOT`、`LLVM_MINGW_ROOT`、`LLVM_CLANG_CL` 指向仓库内工具链，因此不需要修改系统 PATH 或用户环境变量；`task` 本身安装在 `$(go env GOPATH)/bin`，若该目录不在 PATH，引导结束时会打印需要追加的路径。`go test -race` 在 Windows 上通过 [tools/llvm/clang-cl.cmd](tools/llvm/clang-cl.cmd) 使用固定的 LLVM 23.1.3 与 LLVM-MinGW；Linux/macOS 使用系统 `clang`。
 
-`.github/workflows/ci.yml` 在 Windows、macOS、Linux 上执行同一 `task ci`，先按 `packages.lock.json` 以 `--locked-mode` 还原 NuGet 依赖；仅修改文档时跳过完整构建。
+`.github/workflows/ci.yml` 只保留 `setup-go`，随后执行同一个引导器和 `task ci`；仅修改文档时跳过完整构建。
 
-版本锁定位置：
+依赖来源分工：
 
-| 依赖 | 权威文件 |
-| --- | --- |
-| Go 版本与 Go 依赖 | `server/go.mod`、`server/go.sum` |
-| .NET SDK | `global.json` |
-| NuGet 包与 Godot SDK 包 | `client/packages.lock.json`、`client/src/Core/packages.lock.json`、`client/tests/Riftcards.Client.Core.Tests/packages.lock.json` |
-| Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` |
-| LLVM | `tools/llvm/VERSION` |
-| Go Task、golangci-lint、govulncheck、最低工具版本 | `Taskfile.yml` |
-| CI 中的 Go Task、LLVM-MinGW、action commit | `.github/workflows/ci.yml` |
+| 依赖 | 版本声明 | 获取方式 |
+| --- | --- | --- |
+| Go 版本与 Go 模块 | `server/go.mod`、`server/go.sum` | 开发者安装的 Go |
+| Go Task、golangci-lint、govulncheck | `Taskfile.yml` | `go install` 到 GOPATH/bin 与 `.tools/bin` |
+| .NET SDK | `Taskfile.yml`、`global.json` | 官方 SDK 压缩包 + SHA512 校验 |
+| Godot（.NET 版） | `Taskfile.yml` | 官方 release 压缩包 + SHA256 校验 |
+| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 release 压缩包 + SHA256 校验 |
+| NuGet 包与 Godot SDK 包 | `client/**/packages.lock.json` | `dotnet restore --locked-mode` |
+| Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` | NuGet 还原 |
 
 服务端启动后监听 `http://127.0.0.1:8080`：
 

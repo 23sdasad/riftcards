@@ -90,7 +90,7 @@
 - 2026-10-08：创建任务。以最新稳定工具链为本地验证基线，不改变规则和协议语义。
 - 2026-10-08：完成 Go/C#/Godot 修复，并以官方 LLVM 23.1.3 和 `clang-cl.cmd` 打通 Windows race；Linux/macOS 使用同一版本 `clang`。
 - 2026-10-08：把 CI 的 LLVM 源文件检查改为 POSIX shell 兼容写法，避免 macOS Bash 3.2 缺少 `mapfile`，并按 C/C++ 选择 `clang-tidy` 标准。
-- 2026-10-08：更正 —— 推送后的三平台 CI 实跑失败：`KyleMayes/install-llvm-action@v2` 的资产表没有 23.1.3，三个平台都停在 “Install LLVM”。CI 改为 Unix 使用 runner 自带 `clang`、Windows 下载并校验 SHA256 的固定 LLVM-MinGW；`tools/llvm/VERSION` 仍是本地安装的权威版本。详见 012。
+- 2026-10-08：更正 —— 推送后的三平台 CI 实跑失败：`KyleMayes/install-llvm-action@v2` 的资产表没有 23.1.3，三个平台都停在 “Install LLVM”。CI 改为 Unix 使用 runner 自带 `clang`、Windows 下载并校验 SHA256 的固定 LLVM-MinGW；当时的 `tools/llvm/VERSION` 是本地安装的权威版本（该文件后续由 014 合并进 `Taskfile.yml` 声明）。详见 012。
 
 ## 完成摘要
 

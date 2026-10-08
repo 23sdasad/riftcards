@@ -7,7 +7,8 @@
 当前实现：
 
 - `server/internal/platform/pathutil` 提供与运行主机无关的 Windows、macOS、Linux 路径解析、规范化、拼接、比较和词法 confinement。
-- 仓库命令入口是根目录 `Taskfile.yml`；业务代码仍然不引入 shell 进程层。
+- 仓库命令入口是根目录 `Taskfile.yml`；全部依赖的版本声明也集中在该文件的 `vars:`。
+- 依赖由独立 Go 模块 `tools/toolchain` 引导到仓库内 `.tools/`；业务代码仍然不引入 shell 进程层。`tools/toolchain` 不依赖 `server` 模块。
 
 目标边界：
 
@@ -54,7 +55,8 @@
 | 类别 | 权威路径 | 约定 |
 | --- | --- | --- |
 | 入口文档 | `README.md`、`AGENTS.md` | 人和自动化代理的仓库入口 |
-| 命令入口 | `Taskfile.yml`、`global.json` | 统一 `task` 命令入口与 .NET SDK 锁定 |
+| 命令入口 | `Taskfile.yml`、`global.json` | 统一 `task` 命令入口、依赖声明与 .NET SDK 锁定 |
+| 依赖引导 | `tools/toolchain/`、`.tools/` | Go 引导器（独立模块）与它安装的本地依赖（`.tools/` 由 git 忽略） |
 | AI 事实来源 | `ai-docs/` | 长期规则、协议、架构、规范和 task |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
 | 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/`、`client/**/packages.lock.json` | Godot 工程、Core/Godot 分层、纯 .NET 测试和 NuGet 锁定 |
@@ -69,6 +71,7 @@
 | .NET 构建与测试 | `**/bin/`、`**/obj/`、`TestResults/`、`coverage/` |
 | Go 构建与覆盖率 | `server/bin/`、`server/dist/`、`server/coverage.out` |
 | 本地临时与秘密 | `.env*`、`*.local.json`、`tmp/`、`temp/` |
+| 引导安装的依赖 | `.tools/`（可删除后由 `task bootstrap` 重建） |
 
 具体忽略规则由根目录 `.gitignore` 维护；本文只说明路径类别，不复制通配符清单。
 
@@ -111,6 +114,7 @@ cmd -> transport/ws -> match -> protocol -> game
 cmd -> match
 server 各适配层 -> pathutil
 pathutil -> Go 标准库
+tools/toolchain -> Taskfile.yml（只读取依赖声明）
 ```
 
 禁止路径：

@@ -60,6 +60,7 @@
 - 长期说明统一放 `ai-docs`；短生命周期任务说明不能作为契约。
 - 仓库路径、生成目录和依赖边界统一见[Path 与工程边界](paths-and-boundaries.md)。
 - 公共命令只从仓库根目录 `Taskfile.yml` 进入；不在仓库内新增平台专用脚本或第二套任务定义。
+- 依赖的版本、下载地址与校验哈希只在 `Taskfile.yml` 的 `vars:` 声明；新增依赖必须同时更新 `tools/toolchain`、[库调研](../contracts/library-research.md) 与相关文档，不新增系统级安装步骤。
 - 新增二进制资源时使用仓库已采用的 Godot 导入流程，不提交 `.godot/`。
 
 ## 提交前检查清单

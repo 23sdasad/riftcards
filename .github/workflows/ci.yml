@@ -19,14 +19,6 @@ permissions:
   contents: read
 
 env:
-  # 第三方 action 全部按 commit SHA 固定；Go Task 版本见 setup-task 步骤。
-  LLVM_VERSION: "23.1.3"
-  LLVM_WINDOWS_URL: "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.3/clang%2Bllvm-23.1.3-x86_64-pc-windows-msvc.tar.xz"
-  LLVM_WINDOWS_SHA256: "9ee6a2192fbb30c776415af529927f76ca6b5d1d55699bb1315f9878e610b5b8"
-  LLVM_MINGW_VERSION: "20260908"
-  LLVM_MINGW_URL: "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-x86_64.zip"
-  LLVM_MINGW_SHA256: "1bcf74d06b724aeecaa6412ca85f5b26fb1da770e7cdcefa9263c9c5c3ad34b6"
-  CGO_ENABLED: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
   DOTNET_NOLOGO: "true"
 
@@ -34,134 +26,43 @@ jobs:
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
+      # Go 是唯一的引导前提；其余依赖的版本、URL 与哈希只在 Taskfile.yml 声明。
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
 
-      - name: Configure C compiler (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          echo "CC=clang" >> "$GITHUB_ENV"
-          echo "CXX=clang++" >> "$GITHUB_ENV"
-
-      - name: Install pinned LLVM (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # tools/llvm/clang-cl.cmd 强制 -resource-dir=<LLVM-MinGW>\lib\clang\23，
-          # 驱动也必须是同一个 23.1.3，否则内建 intrinsic 头文件与驱动版本不匹配。
-          $archive = Join-Path $env:RUNNER_TEMP "llvm.tar.xz"
-          $directory = Join-Path $env:RUNNER_TEMP "llvm"
-          Invoke-WebRequest -Uri "$env:LLVM_WINDOWS_URL" -OutFile $archive
-          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne $env:LLVM_WINDOWS_SHA256) {
-            throw "LLVM $env:LLVM_VERSION SHA256 mismatch: $actual"
-          }
-          New-Item -ItemType Directory -Force -Path $directory | Out-Null
-          tar -xJf $archive -C $directory
-          $root = Get-ChildItem -LiteralPath $directory -Directory |
-            Select-Object -First 1 -ExpandProperty FullName
-          "LLVM_ROOT=$root" >> $env:GITHUB_ENV
-          "LLVM_CLANG_CL=$root\bin\clang-cl.exe" >> $env:GITHUB_ENV
-          "$root\bin" >> $env:GITHUB_PATH
-
-      - name: Install LLVM-MinGW (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP "llvm-mingw.zip"
-          $directory = Join-Path $env:RUNNER_TEMP "llvm-mingw"
-          Invoke-WebRequest -Uri "$env:LLVM_MINGW_URL" -OutFile $archive
-          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLower()
-          if ($actual -ne $env:LLVM_MINGW_SHA256) {
-            throw "LLVM-MinGW $env:LLVM_MINGW_VERSION SHA256 mismatch: $actual"
-          }
-          Expand-Archive -LiteralPath $archive -DestinationPath $directory
-          $root = Get-ChildItem -LiteralPath $directory -Directory |
-            Select-Object -First 1 -ExpandProperty FullName
-          "LLVM_MINGW_ROOT=$root" >> $env:GITHUB_ENV
-          "CC=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
-          "CXX=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
-
-      - name: Report pinned tool versions
-        shell: bash
-        run: |
-          echo "go.mod:      $(sed -n 's/^go //p' server/go.mod)"
-          echo "global.json: $(tr -d ' \n' < global.json)"
-          echo "llvm/VERSION: $(cat tools/llvm/VERSION)"
-          for tool in clang clang-format clang-tidy clangd; do
-            if command -v "$tool" >/dev/null 2>&1; then
-              echo "$tool: $("$tool" --version | sed -n 1p)"
-            else
-              echo "::warning::$tool 不在 runner PATH 中；本平台跳过对应的 C/C++ 检查"
-            fi
-          done
-
-      - name: Check C/C++ with LLVM
-        shell: bash
-        run: |
-          sources_file="$RUNNER_TEMP/llvm-sources.txt"
-          git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' > "$sources_file"
-          if [ ! -s "$sources_file" ]; then
-            echo "No C/C++ sources to check."
-            exit 0
-          fi
-          for tool in clang-format clang-tidy; do
-            command -v "$tool" >/dev/null 2>&1 || { echo "::error::$tool 缺失，无法检查 C/C++ 源文件"; exit 1; }
-          done
-          while IFS= read -r source; do
-            clang-format --dry-run --Werror "$source"
-            case "$source" in
-              *.c|*.h)
-                language_standard=c11
-                ;;
-              *)
-                language_standard=c++20
-                ;;
-            esac
-            clang-tidy "$source" -- "-std=$language_standard"
-          done < "$sources_file"
-
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
-          cache-dependency-path: server/go.sum
+          cache-dependency-path: |
+            server/go.sum
+            tools/toolchain/go.sum
 
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          global-json-file: global.json
-
-      - uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2
-        with:
-          version: "3.54.0"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install pinned Go tools
-        shell: bash
-        run: |
-          task bootstrap
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          path: .tools/cache
+          key: tools-${{ runner.os }}-${{ hashFiles('Taskfile.yml') }}
 
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('client/**/packages.lock.json', 'client/**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('client/**/packages.lock.json') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      - name: Restore locked NuGet dependencies
+      - name: Bootstrap pinned dependencies
         shell: bash
-        run: |
-          dotnet restore client/src/Core/Riftcards.Client.Core.csproj --locked-mode
-          dotnet restore client/Riftcards.Client.csproj --locked-mode
-          dotnet restore client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj --locked-mode
+        run: go -C tools/toolchain run . bootstrap --without godot
+
+      - name: Add Go bin to PATH
+        shell: bash
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: Run repository gate
         run: task ci

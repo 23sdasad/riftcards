@@ -33,3 +33,6 @@ server/coverage.out
 tmp/
 temp/
 *.tmp
+
+# 由 tools/toolchain 引导的本地依赖（.NET SDK、Godot、LLVM 等）
+.tools/

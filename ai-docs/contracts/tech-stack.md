@@ -73,31 +73,43 @@ client/
 
 ## 环境要求
 
+开发机只需要 Go；其余依赖由引导器装进仓库内 `.tools/`：
+
+```powershell
+go -C tools/toolchain run . bootstrap
+```
+
 - Go：1.27 或更新，实际以 `server/go.mod` 为准（`golangci-lint` 2.14.0 要求 Go 1.26+，因此下限取 1.27 与本地验证一致）。
-- .NET SDK：8.0 或更新；`global.json` 固定 `8.0.100`，`rollForward: latestMajor` 允许本地使用更高版本 SDK。
+- .NET SDK：8.0.425，`global.json` 固定同一版本，`rollForward: latestMajor` 允许使用更高版本 SDK。
 - Godot：4.7.2，必须使用 .NET 版本。
-- Go Task：3.54.0，安装方式见 [taskfile.dev](https://taskfile.dev/installation/)。
-- golangci-lint：2.14.0；govulncheck：1.1.4；两者由 `task bootstrap` 安装。
-- LLVM：23.1.3；Windows cgo 运行时使用 LLVM-MinGW UCRT 23.1.1-20260908。
+- Go Task：3.54.0，由 `go install` 装到 `$(go env GOPATH)/bin`。
+- golangci-lint：2.14.0；govulncheck：1.1.4；装到 `.tools/bin`。
+- LLVM：23.1.3（Windows 由引导器安装，Unix 使用系统 `clang`）；Windows cgo 运行时使用 LLVM-MinGW UCRT 20260908。
 
 Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修改 `client/Riftcards.Client.csproj` 中的 SDK 版本并运行客户端编译。
-LLVM 版本以 `tools/llvm/VERSION` 为唯一事实来源；Windows 编译器入口为 `tools/llvm/clang-cl.cmd`。
+LLVM 版本由 `Taskfile.yml` 的 `LLVM_VERSION` 声明；Windows 编译器入口为 `tools/llvm/clang-cl.cmd`，其 `LLVM_MINGW_ROOT`、`LLVM_CLANG_CL`、`LLVM_MAJOR`、`CC`、`CXX` 由 `.tools/toolchain.env` 提供。
 
-## 版本锁定
+## 依赖引导与版本锁定
 
-每个依赖只有一个权威位置，CI 与本地命令都读取同一处：
+依赖的版本、下载地址和校验哈希只在 `Taskfile.yml` 的 `vars:` 声明一次；[tools/toolchain](../../tools/toolchain)（独立 Go 模块）读取该声明并落实安装：
 
-| 依赖 | 权威位置 |
-| --- | --- |
-| Go 与 Go 模块 | `server/go.mod`、`server/go.sum` |
-| .NET SDK | `global.json` |
-| NuGet 包、Godot SDK 包 | `client/**/packages.lock.json`（CI 以 `--locked-mode` 校验） |
-| Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` |
-| LLVM | `tools/llvm/VERSION` |
-| Go Task、golangci-lint、govulncheck、最低工具版本 | `Taskfile.yml` |
-| CI 专用固定项：Go Task、LLVM 23.1.3 压缩包、LLVM-MinGW、action commit | `.github/workflows/ci.yml` |
+- `bootstrap`：安装 Go 工具，下载并校验 .NET SDK、Godot、Windows LLVM 与 LLVM-MinGW，按锁文件还原 NuGet 依赖；`--without <组件>` 跳过，`--force` 重装。
+- `check`：检查依赖是否存在并满足锁定版本，缺失时给出工具名、最低版本和安装入口（`task env`）。
+- `env`：打印生成的 `.tools/toolchain.env` 映射。
 
-升级任何一项时，同一 commit 更新权威位置、CI、文档和受影响 task。
+安装位置固定为仓库内 `.tools/`（git 忽略），`.tools/toolchain.env` 被 Taskfile 的 `dotenv` 读取，再映射成 `CC`、`CXX`、`DOTNET_ROOT`、`LLVM_MINGW_ROOT`、`LLVM_CLANG_CL`。因为 Task 的 dotenv 不会覆盖已存在的环境变量，映射而非直接设置 PATH 是刻意的：开发者环境不被改写。
+
+| 依赖 | 版本声明 | 获取方式 |
+| --- | --- | --- |
+| Go 与 Go 模块 | `server/go.mod`、`server/go.sum` | 开发者安装的 Go |
+| Go Task、golangci-lint、govulncheck | `Taskfile.yml` | `go install` |
+| .NET SDK | `Taskfile.yml`、`global.json` | 官方压缩包 + SHA512 |
+| Godot（.NET 版） | `Taskfile.yml` | 官方 release 压缩包 + SHA256 |
+| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 release 压缩包 + SHA256 |
+| NuGet 包、Godot SDK 包 | `client/**/packages.lock.json` | `dotnet restore --locked-mode` |
+| Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` | NuGet 还原 |
+
+升级任何一项时，同一 commit 更新 `Taskfile.yml` 声明、受影响文档和 task；引导器不硬编码版本，`TC_<KEY>` 环境变量可临时覆盖声明用于验证。
 
 ## 运行
 
@@ -112,12 +124,11 @@ task run:client
 
 `.github/workflows/ci.yml` 在 Windows、macOS、Linux 三平台运行同一门禁：
 
-1. 按 commit SHA 固定的 action 准备 Go、.NET SDK 和 Go Task 3.54.0。
-2. Windows 校验并安装固定的 LLVM 23.1.3 压缩包（含 `clang-cl` 驱动）和固定的 LLVM-MinGW；Unix 使用 runner 自带 `clang`，版本打印在日志中。
-3. `task bootstrap` 安装锁定版本的 Go 工具，`dotnet restore --locked-mode` 校验锁文件。
-4. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、`go test -race` 和 `dotnet test`。
+1. `actions/setup-go` 按 `server/go.mod` 准备 Go（唯一非 Go 引导项）。
+2. `go -C tools/toolchain run . bootstrap --without godot` 安装全部剩余依赖，并缓存 `.tools/cache` 与 NuGet 包。
+3. `task ci`：Go 格式只读检查、`go vet`、`golangci-lint`、C# 构建与格式检查、`go test -race` 和 `dotnet test`。
 
-CI 使用固定版本的 Go、.NET SDK 和 Go Task，配置最小权限、并发取消、超时和 NuGet 缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
+CI 只保留 `setup-go` 一个工具类 action，.NET SDK、Go Task、LLVM 与 LLVM-MinGW 都来自 Taskfile 声明；配置最小权限、并发取消、超时和两级缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
 
 ## 暂不接入
 

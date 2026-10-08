@@ -41,6 +41,28 @@
 - `zap`/`logrus`：标准库 `log/slog` 已满足结构化日志。
 - `google/uuid` 或 ULID：当前连接、玩家和卡牌实例 ID 由服务端内部生成；需要跨服务全局排序 ID 时再引入。
 
+### 仓库工具（`tools/toolchain`）
+
+选择：
+
+- `github.com/ulikunitz/xz`
+
+用途：依赖引导器解压官方 LLVM 的 `.tar.xz` 归档（Windows 固定工具链）。
+
+理由：
+
+- 纯 Go 实现，不依赖外部 `xz` 命令，符合“开发者只需要 Go”的引导前提。
+- 标准库只有 `archive/zip` 与 `compress/gzip`，无法处理 xz。
+- 该模块只被 `tools/toolchain` 引用，不进入服务端二进制或客户端依赖。
+
+备选：
+
+| 库 | 优点 | 不选原因 |
+| --- | --- | --- |
+| 调用系统 `tar -xJf` / `xz` | 无新依赖 | 引入外部工具假设，Windows 上并非所有环境都有 |
+| 改用 LLVM 的 `.tar.zst` | 压缩率更好 | 标准库同样不支持 zstd，反而需要更大依赖 |
+| 改用 LLVM 的 `.msi` 安装包 | 体积略小 | 需要 `msiexec` 管理安装，且会写入系统目录，违背“装到 `.tools/`”的目标 |
+
 ### C# / Godot
 
 选择：
@@ -73,7 +95,7 @@
 采用三层：
 
 1. 编辑器层：`.editorconfig` 统一换行、缩进、字符集。
-2. 本地任务层：根目录 `Taskfile.yml` 提供 `fmt`、`fmt:check`、`lint`、`test`、`check`、`ci`，并使用 Go Task 3.54.0。
+2. 本地任务层：根目录 `Taskfile.yml` 提供 `fmt`、`fmt:check`、`lint`、`test`、`check`、`ci`，并使用 Go Task 3.54.0；依赖版本与哈希也在该文件声明，由 `tools/toolchain` 安装到 `.tools/`。
 3. CI 层：调用同一组 `task` 命令，只增加锁文件校验、缓存和三平台矩阵。
 
 Go：

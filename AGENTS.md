@@ -41,6 +41,6 @@
 
 ## 完成任务前
 
-在仓库根目录使用统一入口：`task fmt`、`task lint`、`task test`，或一次运行 `task check`；只读校验用 `task ci`。缺少工具时先运行 `task env`，它会列出缺失工具、最低版本和安装入口。完整口径见 `ai-docs/architecture/testing.md`。
+在仓库根目录使用统一入口：`task fmt`、`task lint`、`task test`，或一次运行 `task check`；只读校验用 `task ci`。全部依赖由 `tools/toolchain` 按 `Taskfile.yml` 的声明装到 `.tools/`：首次使用或 `.tools/` 被删除后先运行 `go -C tools/toolchain run . bootstrap`（该命令不依赖 `task`），缺少工具时用 `task env` 查看缺失项、最低版本和安装入口。完整口径见 `ai-docs/architecture/testing.md`。
 
 若本机缺少 Godot、Go 或 .NET SDK，必须明确记录未执行的检查，不能把未验证内容描述为已验证。

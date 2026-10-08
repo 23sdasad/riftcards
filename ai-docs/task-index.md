@@ -25,7 +25,8 @@ ai-docs/
     ├── 010-local-end-to-end.md
     ├── 011-github-actions-ci.md
     ├── 012-taskfile-command-entry.md
-    └── 013-toolchain-gate-repair.md
+    ├── 013-toolchain-gate-repair.md
+    └── 014-go-toolchain-bootstrap.md
 ```
 
 1. 复制[模板](task/_template.md)为 `task/NNN-kebab-case.md`，编号取当前最大编号加一，不复用；填写范围与可判断的验收条件。
@@ -63,3 +64,4 @@ ai-docs/
 | 011 | [GitHub Actions CI](task/011-github-actions-ci.md) | 001 | done |
 | 012 | [统一 Taskfile 命令入口与版本锁定](task/012-taskfile-command-entry.md) | 011 | done |
 | 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |
+| 014 | [用 Go 引导全部依赖](task/014-go-toolchain-bootstrap.md) | 012 | in-progress |
