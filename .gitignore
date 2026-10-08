@@ -1,0 +1,35 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.user
+*.suo
+
+# Godot
+.godot/
+client/.godot/
+client/export/
+
+# .NET
+**/bin/
+**/obj/
+TestResults/
+coverage/
+*.nupkg
+
+# Go
+server/bin/
+server/dist/
+server/coverage.out
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
