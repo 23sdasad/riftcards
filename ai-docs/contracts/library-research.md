@@ -43,25 +43,20 @@
 
 ### 仓库工具（`tools/toolchain`）
 
-选择：
+结论：**不引入第三方依赖**。引导器只使用 Go 标准库（`archive/zip`、`archive/tar`、`compress/gzip`、`net/http`、`os/exec`）：
 
-- `github.com/ulikunitz/xz`
+- .NET SDK：Windows 用 `zip`，Linux/macOS 用 `tar.gz`，标准库可解。
+- Godot 与 LLVM-MinGW：官方 `zip`。
+- Windows LLVM：官方 `LLVM-<ver>-win64.msi` 用 Windows Installer 的管理安装（`msiexec /a <msi> /qn TARGETDIR=<dir>`）展开到 `.tools/llvm`；不注册产品、不写系统目录、不需要管理员权限，因此不需要 xz 解码器。
 
-用途：依赖引导器解压官方 LLVM 的 `.tar.xz` 归档（Windows 固定工具链）。
+已排除的方案：
 
-理由：
-
-- 纯 Go 实现，不依赖外部 `xz` 命令，符合“开发者只需要 Go”的引导前提。
-- 标准库只有 `archive/zip` 与 `compress/gzip`，无法处理 xz。
-- 该模块只被 `tools/toolchain` 引用，不进入服务端二进制或客户端依赖。
-
-备选：
-
-| 库 | 优点 | 不选原因 |
-| --- | --- | --- |
-| 调用系统 `tar -xJf` / `xz` | 无新依赖 | 引入外部工具假设，Windows 上并非所有环境都有 |
-| 改用 LLVM 的 `.tar.zst` | 压缩率更好 | 标准库同样不支持 zstd，反而需要更大依赖 |
-| 改用 LLVM 的 `.msi` 安装包 | 体积略小 | 需要 `msiexec` 管理安装，且会写入系统目录，违背“装到 `.tools/`”的目标 |
+| 方案 | 不选原因 |
+| --- | --- |
+| `github.com/ulikunitz/xz` + LLVM `.tar.xz` | 014 曾采用；015 改用官方 MSI 后，该路径与唯一的第三方依赖一并删除 |
+| 调用系统 `tar -xJf` 或 `7z` | 引入外部工具假设，Windows 环境不保证存在 |
+| LLVM `.tar.zst` | 标准库不支持 zstd，需要更大的依赖 |
+| LLVM `.tar.xz` | 归档比 MSI 大（901 MB 对 639 MB），且需要额外解码器 |
 
 ### C# / Godot
 

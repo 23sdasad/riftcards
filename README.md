@@ -88,7 +88,7 @@ task run:client   # 打开 Godot 客户端工程
 | Go Task、golangci-lint、govulncheck | `Taskfile.yml` | `go install` 到 GOPATH/bin 与 `.tools/bin` |
 | .NET SDK | `Taskfile.yml`、`global.json` | 官方 SDK 压缩包 + SHA512 校验 |
 | Godot（.NET 版） | `Taskfile.yml` | 官方 release 压缩包 + SHA256 校验 |
-| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 release 压缩包 + SHA256 校验 |
+| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 MSI 管理安装（`msiexec /a`）与官方 zip，均校验 SHA256 |
 | NuGet 包与 Godot SDK 包 | `client/**/packages.lock.json` | `dotnet restore --locked-mode` |
 | Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` | NuGet 还原 |
 

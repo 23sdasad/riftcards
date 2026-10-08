@@ -17,8 +17,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/ulikunitz/xz"
 )
 
 // fetchArchive 返回缓存中的归档路径，必要时下载并按锁定哈希校验。
@@ -286,20 +284,33 @@ func extractArchive(archivePath, kind, destDir string) error {
 		}
 		defer func() { _ = gz.Close() }()
 		return extractTar(gz, destDir)
-	case "tarxz":
-		f, err := os.Open(archivePath)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = f.Close() }()
-		xr, err := xz.NewReader(f)
-		if err != nil {
-			return err
-		}
-		return extractTar(xr, destDir)
+	case "msi":
+		return extractMSI(archivePath, destDir)
 	default:
 		return fmt.Errorf("未知归档类型 %q", kind)
 	}
+}
+
+// extractMSI 用 Windows Installer 的管理安装把 MSI 展开到 destDir：
+// 不注册产品、不写系统目录，也不需要管理员权限。
+func extractMSI(archivePath, destDir string) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("MSI 管理安装仅在 Windows 上可用")
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		return err
+	}
+	args := msiInstallArgs(archivePath, destDir)
+	output, err := runCapture("msiexec", args...)
+	if err != nil {
+		return fmt.Errorf("msiexec 管理安装失败（%v）：%s", err, strings.TrimSpace(output))
+	}
+	return nil
+}
+
+// msiInstallArgs 返回管理安装参数，便于单独测试。
+func msiInstallArgs(archivePath, destDir string) []string {
+	return []string{"/a", archivePath, "/qn", "/norestart", "TARGETDIR=" + destDir}
 }
 
 func extractZip(archivePath, destDir string) error {

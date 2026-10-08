@@ -95,7 +95,7 @@ LLVM 版本由 `Taskfile.yml` 的 `LLVM_VERSION` 声明；Windows 编译器入�
 
 依赖的版本、下载地址和校验哈希只在 `Taskfile.yml` 的 `vars:` 声明一次；[tools/toolchain](../../tools/toolchain)（独立 Go 模块）读取该声明并落实安装：
 
-- `bootstrap`：安装 Go 工具，下载并校验 .NET SDK、Godot、Windows LLVM 与 LLVM-MinGW，按锁文件还原 NuGet 依赖；`--without <组件>` 跳过，`--force` 重装。
+- `bootstrap`：安装 Go 工具，下载并校验 .NET SDK、Godot、Windows LLVM（官方 MSI 管理安装）与 LLVM-MinGW，按锁文件还原 NuGet 依赖；`--without <组件>` 跳过，`--force` 重装。
 - `check`：检查依赖是否存在并满足锁定版本，缺失时给出工具名、最低版本和安装入口（`task env`）。
 - `env`：打印生成的 `.tools/toolchain.env` 映射。
 
@@ -107,7 +107,7 @@ LLVM 版本由 `Taskfile.yml` 的 `LLVM_VERSION` 声明；Windows 编译器入�
 | Go Task、golangci-lint、govulncheck | `Taskfile.yml` | `go install` |
 | .NET SDK | `Taskfile.yml`、`global.json` | 官方压缩包 + SHA512 |
 | Godot（.NET 版） | `Taskfile.yml` | 官方 release 压缩包 + SHA256 |
-| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 release 压缩包 + SHA256 |
+| Windows LLVM、LLVM-MinGW | `Taskfile.yml` | 官方 MSI 管理安装（`msiexec /a`）与官方 zip，均校验 SHA256 |
 | NuGet 包、Godot SDK 包 | `client/**/packages.lock.json` | `dotnet restore --locked-mode` |
 | Godot SDK 与工程特性版本 | `client/Riftcards.Client.csproj`、`client/project.godot` | NuGet 还原 |
 

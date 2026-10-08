@@ -112,8 +112,8 @@ func LoadConfig() (*Config, error) {
 		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_WIN_X64", &missing)
 		cfg.GodotURL = godotURL(cfg.GodotVersion, "win64")
 		cfg.GodotHash = depValue(vars, "GODOT_SHA256_WIN64", &missing)
-		cfg.LlvmURL = depValue(vars, "LLVM_WINDOWS_URL", &missing)
-		cfg.LlvmHash = depValue(vars, "LLVM_WINDOWS_SHA256", &missing)
+		cfg.LlvmURL = depValue(vars, "LLVM_WINDOWS_MSI_URL", &missing)
+		cfg.LlvmHash = depValue(vars, "LLVM_WINDOWS_MSI_SHA256", &missing)
 		cfg.MingwURL = depValue(vars, "LLVM_MINGW_URL", &missing)
 		cfg.MingwHash = depValue(vars, "LLVM_MINGW_SHA256", &missing)
 	case "linux/amd64":
@@ -155,7 +155,8 @@ func godotURL(version, asset string) string {
 }
 
 // components 返回当前平台应下载的依赖。Windows 额外需要固定 LLVM 与 LLVM-MinGW：
-// clang-cl 包装器强制 -resource-dir=<MinGW>\lib\clang\23，驱动版本必须一致。
+// clang-cl 包装器强制 -resource-dir=<MinGW>\lib\clang\<major>，驱动版本必须一致。
+// LLVM 用官方 MSI 的管理安装展开到 .tools/llvm：不注册产品、不写系统目录、不需要管理员。
 func (c *Config) components() []component {
 	dotnetArchive := "targz"
 	if runtime.GOOS == "windows" {
@@ -177,7 +178,7 @@ func (c *Config) components() []component {
 		items = append(items,
 			component{
 				Name: "llvm", Version: c.LlvmVersion, URL: c.LlvmURL,
-				Hash: c.LlvmHash, HashAlgo: "sha256", Archive: "tarxz",
+				Hash: c.LlvmHash, HashAlgo: "sha256", Archive: "msi",
 				TargetDir: filepath.Join(c.ToolsDir, "llvm"),
 			},
 			component{

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 type bootstrapOptions struct {
@@ -193,16 +194,21 @@ func ensureComponent(cfg *Config, comp component, force bool) error {
 	if err := prepareComponent(cfg, comp); err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(comp.TargetDir, ".version"), []byte(comp.Version+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(comp.TargetDir, ".version"), []byte(componentMarker(comp)+"\n"), 0o644); err != nil {
 		return err
 	}
 	fmt.Println()
 	return nil
 }
 
+// componentMarker 记录版本与锁定哈希：切换资产（例如 tar.xz 改 MSI）时会失效重装。
+func componentMarker(comp component) string {
+	return comp.Version + " " + strings.ToLower(comp.Hash)
+}
+
 func componentReady(cfg *Config, comp component) bool {
 	content, err := os.ReadFile(filepath.Join(comp.TargetDir, ".version"))
-	if err != nil || strings.TrimSpace(string(content)) != comp.Version {
+	if err != nil || strings.TrimSpace(string(content)) != componentMarker(comp) {
 		return false
 	}
 	switch comp.Name {
@@ -249,7 +255,9 @@ func prepareComponent(cfg *Config, comp component) error {
 			return err
 		}
 	case "llvm":
-		if _, err := findLlvmClangCl(comp.TargetDir); err != nil {
+		// msiexec 管理安装会交给 Windows Installer 服务，退出码可能是 0 而文件尚未落盘，
+		// 因此以“能否定位到 clang-cl”为成功判据，并给它足够时间。
+		if _, err := waitForFind(comp.TargetDir, 5*time.Minute, findLlvmClangCl); err != nil {
 			return err
 		}
 	case "llvm-mingw":
@@ -258,6 +266,23 @@ func prepareComponent(cfg *Config, comp component) error {
 		}
 	}
 	return nil
+}
+
+// waitForFind 轮询定位结果，用于可能异步完成的安装。
+func waitForFind(root string, timeout time.Duration, find func(string) (string, error)) (string, error) {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for {
+		path, err := find(root)
+		if err == nil {
+			return path, nil
+		}
+		lastErr = err
+		if time.Now().After(deadline) {
+			return "", fmt.Errorf("%v（等待 %s 后仍未见文件）", lastErr, timeout)
+		}
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func restoreNuGet(cfg *Config) error {

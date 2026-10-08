@@ -94,6 +94,7 @@
 - 2026-10-08：实测 `clang-cl.cmd` 硬编码 `lib/clang/23` 会让升级 LLVM 时漏改，改为使用 `LLVM_MAJOR`（由引导器依 `LLVM_VERSION` 生成，默认值仅兜底）。
 - 2026-10-08：本机与 CI 修复两个真实下载缺陷：Go 不会读取 Windows 系统代理（.NET 下载因此卡在 0 字节），现在会读取注册表代理设置；GitHub 资产与 .NET 主机可达性相反（前者直连 HTTP/2 正常、走代理 EOF，后者直连 TLS 握手超时、走代理正常），因此改为“默认网络 + 系统代理”双通道轮询重试。实测强制 HTTP/1.1 会让 GitHub 资产立刻 EOF，故保留默认协议。
 - 2026-10-08：`.tools/toolchain.env` 必须无 BOM：Task 使用的 dotenv 解析器遇到 BOM 会直接报错。
+- 2026-10-08：Windows LLVM 的获取方式改为官方 MSI 管理安装（`msiexec /a … TARGETDIR=…`），并删除 `github.com/ulikunitz/xz` 依赖与 `.tar.xz` 分支；引导器回到纯标准库。详见 [015](015-windows-llvm-msi.md)。
 
 ## 完成摘要
 

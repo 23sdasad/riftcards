@@ -26,7 +26,8 @@ ai-docs/
     ├── 011-github-actions-ci.md
     ├── 012-taskfile-command-entry.md
     ├── 013-toolchain-gate-repair.md
-    └── 014-go-toolchain-bootstrap.md
+    ├── 014-go-toolchain-bootstrap.md
+    └── 015-windows-llvm-msi.md
 ```
 
 1. 复制[模板](task/_template.md)为 `task/NNN-kebab-case.md`，编号取当前最大编号加一，不复用；填写范围与可判断的验收条件。
@@ -65,3 +66,4 @@ ai-docs/
 | 012 | [统一 Taskfile 命令入口与版本锁定](task/012-taskfile-command-entry.md) | 011 | done |
 | 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |
 | 014 | [用 Go 引导全部依赖](task/014-go-toolchain-bootstrap.md) | 012 | done |
+| 015 | [Windows LLVM 改用官方 MSI 管理安装](task/015-windows-llvm-msi.md) | 014 | in-progress |

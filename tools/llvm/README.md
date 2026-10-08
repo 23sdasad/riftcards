@@ -6,7 +6,7 @@
 go -C tools/toolchain run . bootstrap
 ```
 
-- Windows：下载 `clang+llvm-23.1.3-x86_64-pc-windows-msvc.tar.xz` 与 `llvm-mingw-20260908-ucrt-x86_64.zip`，校验 SHA256 后解压到 `.tools/llvm` 与 `.tools/llvm-mingw`。Go cgo 通过 `clang-cl.cmd` 以 GNU 驱动模式调用官方 `clang-cl`，并复用 LLVM-MinGW UCRT 提供的 headers、运行库和链接器。
+- Windows：下载官方 `LLVM-23.1.3-win64.msi`（639 MB，校验 SHA256）与 `llvm-mingw-20260908-ucrt-x86_64.zip`。MSI 用 Windows Installer 的**管理安装**展开到 `.tools/llvm`：`msiexec /a <msi> /qn /norestart TARGETDIR=<.tools/llvm>`，不注册产品、不写系统目录、不需要管理员权限。Go cgo 通过 `clang-cl.cmd` 以 GNU 驱动模式调用其中的官方 `clang-cl`，并复用 LLVM-MinGW UCRT 提供的 headers、运行库和链接器。
 - Linux/macOS：使用系统 `clang`、`clang++`。引导器只检查版本并写入映射，不替换系统工具链。
 - 引导器把 `CC`、`CXX`、`LLVM_MINGW_ROOT`、`LLVM_CLANG_CL`、`LLVM_MAJOR` 写进 `.tools/toolchain.env`，Taskfile 再映射成环境变量，因此不需要手工设置或修改 PATH。
 

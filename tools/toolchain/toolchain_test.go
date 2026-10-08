@@ -164,6 +164,24 @@ func TestFindGodotExeAndShim(t *testing.T) {
 	}
 }
 
+func TestMSIInstallArgs(t *testing.T) {
+	args := msiInstallArgs(`C:\cache\LLVM-23.1.3-win64.msi`, `C:\repo\.tools\llvm`)
+	want := []string{"/a", `C:\cache\LLVM-23.1.3-win64.msi`, "/qn", "/norestart", `TARGETDIR=C:\repo\.tools\llvm`}
+	if len(args) != len(want) {
+		t.Fatalf("参数个数 = %d，期望 %d：%v", len(args), len(want), args)
+	}
+	for i := range want {
+		if args[i] != want[i] {
+			t.Fatalf("第 %d 个参数 = %q，期望 %q", i, args[i], want[i])
+		}
+	}
+	if runtime.GOOS != "windows" {
+		if err := extractMSI("x.msi", t.TempDir()); err == nil {
+			t.Fatal("非 Windows 平台应拒绝 MSI 管理安装")
+		}
+	}
+}
+
 func TestFindMingwRoot(t *testing.T) {
 	root := t.TempDir()
 	lib := filepath.Join(root, "llvm-mingw-20260908-ucrt-x86_64", "lib", "clang", "23", "include")
