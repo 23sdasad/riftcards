@@ -21,6 +21,7 @@
 - 回放以服务端事件日志为准，不从客户端 UI 状态反推。
 - 新增协议字段必须同步修改 Go DTO、C# DTO、`ai-docs/contracts/protocol.md` 和契约测试。
 - 新增或修改卡牌效果必须同步修改 `ai-docs/product/game-rules.md` 和引擎测试。
+- 依赖的版本、下载地址与校验哈希只在 `Taskfile.yml` 的 `vars:` 声明；新增依赖必须同时更新 `tools/toolchain`、`ai-docs/contracts/library-research.md` 和相关文档，不新增系统级安装步骤。
 
 ## 任务工作方式
 

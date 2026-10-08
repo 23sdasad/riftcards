@@ -133,8 +133,8 @@ func newHTTPClient(proxy string) *http.Client {
 		return &http.Client{Timeout: 30 * time.Minute}
 	}
 	cloned := transport.Clone()
-	// 部分代理对 HTTP/2 支持不稳定，会出现半途 EOF；下载大文件时强制 HTTP/1.1。
-	cloned.ForceAttemptHTTP2 = false
+	// 保留默认的 HTTP/2：实测强制 HTTP/1.1 时 GitHub 资产会立刻 EOF，而默认传输
+	// 能正常取到数据；代理通道同样使用默认协议。
 	if proxy != "" {
 		if parsed, err := url.Parse(proxy); err == nil {
 			cloned.Proxy = http.ProxyURL(parsed)

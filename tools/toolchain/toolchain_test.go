@@ -115,15 +115,18 @@ func TestVersionLinePrefersToolLine(t *testing.T) {
 
 func TestFindGodotExeAndShim(t *testing.T) {
 	root := t.TempDir()
-	nested := filepath.Join(root, "Godot_v4.7.2-stable_mono_linux_x86_64")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	var target string
+	switch runtime.GOOS {
+	case "windows":
+		target = filepath.Join(root, "Godot_v4.7.2-stable_mono_win64.exe")
+	case "darwin":
+		target = filepath.Join(root, "Godot_mono.app", "Contents", "MacOS", "Godot")
+	default:
+		target = filepath.Join(root, "Godot_v4.7.2-stable_mono_linux_x86_64", "Godot_v4.7.2-stable_mono_linux.x86_64")
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	name := "Godot_v4.7.2-stable_mono_linux.x86_64"
-	if runtime.GOOS == "windows" {
-		name = "Godot_v4.7.2-stable_mono_win64.exe"
-	}
-	target := filepath.Join(nested, name)
 	if err := os.WriteFile(target, []byte("fake"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +134,7 @@ func TestFindGodotExeAndShim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("findGodotExe 失败：%v", err)
 	}
-	if filepath.Base(found) != name {
+	if filepath.Base(found) != filepath.Base(target) {
 		t.Fatalf("找到的可执行文件不符：%s", found)
 	}
 
