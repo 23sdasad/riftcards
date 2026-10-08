@@ -15,15 +15,22 @@ const (
 	taskfileMarker = "Taskfile.yml"
 	// installEntry 是缺失依赖时统一给出的安装入口。
 	installEntry = "go -C tools/toolchain run . bootstrap"
+	// defaultToolsDir 是引导器安装依赖的仓库内目录（已被 git 忽略）。
+	defaultToolsDir = ".tools"
+	// windowsLLVMDir 是 Windows 上 LLVM 的系统默认安装位置，仅作兜底探测。
+	windowsLLVMDir = `C:\Program Files\LLVM\bin`
 )
 
-// Config 是引导器运行所需的全部信息。版本、URL 和哈希只在仓库根 Taskfile.yml
-// 的 vars: 声明（可用 TC_* 覆盖），引导器不硬编码任何版本。
+// Config 是引导器运行所需的全部信息。
+//
+// 版本、下载地址和校验哈希只在仓库根 Taskfile.yml 的 vars: 中声明，引导器在运行时读取；
+// 任何 TC_<KEY> 环境变量都可以临时覆盖同名声明。引导器本身不硬编码版本。
+// 安装目录默认为仓库内 .tools/，可用 TC_TOOLS_DIR 改为仓库内其他相对路径。
 type Config struct {
-	RepoRoot string
-	ToolsDir string
-	BinDir   string
-	CacheDir string
+	RepoRoot string // 仓库根（含 Taskfile.yml 的目录）
+	ToolsDir string // 依赖安装目录，默认 <RepoRoot>/.tools
+	BinDir   string // 引导器生成的可执行文件与 shim，位于 ToolsDir/bin
+	CacheDir string // 下载的归档缓存，位于 ToolsDir/cache
 
 	TaskVersion         string
 	GolangciLintVersion string
@@ -53,13 +60,13 @@ type Config struct {
 
 // component 描述一个可下载依赖在当前平台上的具体形态。
 type component struct {
-	Name      string
-	Version   string
-	URL       string
-	Hash      string // 十六进制；算法由 HashAlgo 指定
+	Name      string // 组件名，同时用于 --without 跳过
+	Version   string // 锁定版本，写入 .version 标记
+	URL       string // 下载地址
+	Hash      string // 锁定的十六进制哈希，算法由 HashAlgo 指定
 	HashAlgo  string // "sha256" 或 "sha512"
-	Archive   string // "zip"、"targz" 或 "tarxz"
-	TargetDir string
+	Archive   string // 解压方式："zip"、"targz" 或 "msi"（见 extractArchive）
+	TargetDir string // 解压目标目录
 }
 
 // missingVarsError 汇总所有缺失的声明，便于一次性修正 Taskfile。
@@ -84,10 +91,9 @@ func LoadConfig() (*Config, error) {
 	}
 
 	var missing []string
-	toolsDir := firstNonEmpty(os.Getenv("TC_TOOLS_DIR"), ".tools")
 	cfg := &Config{
 		RepoRoot: root,
-		ToolsDir: filepath.Join(root, toolsDir),
+		ToolsDir: filepath.Join(root, firstNonEmpty(os.Getenv("TC_TOOLS_DIR"), defaultToolsDir)),
 
 		TaskVersion:         depValue(vars, "TASK_VERSION", &missing),
 		GolangciLintVersion: depValue(vars, "GOLANGCI_LINT_VERSION", &missing),
@@ -106,44 +112,62 @@ func LoadConfig() (*Config, error) {
 	cfg.BinDir = filepath.Join(cfg.ToolsDir, "bin")
 	cfg.CacheDir = filepath.Join(cfg.ToolsDir, "cache")
 
-	switch runtime.GOOS + "/" + runtime.GOARCH {
-	case "windows/amd64":
-		cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, "win-x64", "zip")
-		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_WIN_X64", &missing)
-		cfg.GodotURL = godotURL(cfg.GodotVersion, "win64")
-		cfg.GodotHash = depValue(vars, "GODOT_SHA256_WIN64", &missing)
-		cfg.LlvmURL = depValue(vars, "LLVM_WINDOWS_MSI_URL", &missing)
-		cfg.LlvmHash = depValue(vars, "LLVM_WINDOWS_MSI_SHA256", &missing)
+	platform, ok := platformAssets[runtime.GOOS+"/"+runtime.GOARCH]
+	if !ok {
+		return nil, fmt.Errorf("不支持的平台 %s/%s：请在 tools/toolchain/config.go 的 platformAssets 中补充", runtime.GOOS, runtime.GOARCH)
+	}
+	cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, platform.dotnetRID, platform.dotnetExt)
+	cfg.DotnetHash = depValue(vars, platform.dotnetHashKey, &missing)
+	cfg.GodotURL = godotURL(cfg.GodotVersion, platform.godotAsset)
+	cfg.GodotHash = depValue(vars, platform.godotHashKey, &missing)
+	if platform.llvmURLKey != "" {
+		cfg.LlvmURL = depValue(vars, platform.llvmURLKey, &missing)
+		cfg.LlvmHash = depValue(vars, platform.llvmHashKey, &missing)
 		cfg.MingwURL = depValue(vars, "LLVM_MINGW_URL", &missing)
 		cfg.MingwHash = depValue(vars, "LLVM_MINGW_SHA256", &missing)
-	case "linux/amd64":
-		cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, "linux-x64", "tar.gz")
-		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_LINUX_X64", &missing)
-		cfg.GodotURL = godotURL(cfg.GodotVersion, "linux_x86_64")
-		cfg.GodotHash = depValue(vars, "GODOT_SHA256_LINUX_X64", &missing)
-	case "linux/arm64":
-		cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, "linux-arm64", "tar.gz")
-		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_LINUX_ARM64", &missing)
-		cfg.GodotURL = godotURL(cfg.GodotVersion, "linux_arm64")
-		cfg.GodotHash = depValue(vars, "GODOT_SHA256_LINUX_ARM64", &missing)
-	case "darwin/amd64":
-		cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, "osx-x64", "tar.gz")
-		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_OSX_X64", &missing)
-		cfg.GodotURL = godotURL(cfg.GodotVersion, "macos.universal")
-		cfg.GodotHash = depValue(vars, "GODOT_SHA256_MACOS_UNIVERSAL", &missing)
-	case "darwin/arm64":
-		cfg.DotnetURL = dotnetURL(cfg.DotnetVersion, "osx-arm64", "tar.gz")
-		cfg.DotnetHash = depValue(vars, "DOTNET_SHA512_OSX_ARM64", &missing)
-		cfg.GodotURL = godotURL(cfg.GodotVersion, "macos.universal")
-		cfg.GodotHash = depValue(vars, "GODOT_SHA256_MACOS_UNIVERSAL", &missing)
-	default:
-		return nil, fmt.Errorf("不支持的平台 %s/%s：请在 Taskfile 中补充资产映射", runtime.GOOS, runtime.GOARCH)
 	}
 
 	if len(missing) > 0 {
 		return nil, &missingVarsError{names: missing}
 	}
 	return cfg, nil
+}
+
+// platformAsset 描述某个 GOOS/GOARCH 下的资产命名与对应的 Taskfile 键名。
+// 键名与 Taskfile.yml 的 vars: 一一对应。
+type platformAsset struct {
+	dotnetRID     string // .NET SDK 的运行时标识，如 win-x64
+	dotnetExt     string // .NET SDK 归档扩展名：zip 或 tar.gz
+	dotnetHashKey string // SHA512 哈希对应的 Taskfile 键名
+	godotAsset    string // Godot 发布资产中的平台段，如 win64
+	godotHashKey  string // Godot SHA256 哈希对应的 Taskfile 键名
+	llvmURLKey    string // 仅 Windows：LLVM MSI 地址的 Taskfile 键名；其他平台为空
+	llvmHashKey   string // 仅 Windows：LLVM MSI SHA256 的 Taskfile 键名
+}
+
+// platformAssets 是唯一的平台资产映射表。新增平台只需在这里补一行。
+var platformAssets = map[string]platformAsset{
+	"windows/amd64": {
+		dotnetRID: "win-x64", dotnetExt: "zip", dotnetHashKey: "DOTNET_SHA512_WIN_X64",
+		godotAsset: "win64", godotHashKey: "GODOT_SHA256_WIN64",
+		llvmURLKey: "LLVM_WINDOWS_MSI_URL", llvmHashKey: "LLVM_WINDOWS_MSI_SHA256",
+	},
+	"linux/amd64": {
+		dotnetRID: "linux-x64", dotnetExt: "tar.gz", dotnetHashKey: "DOTNET_SHA512_LINUX_X64",
+		godotAsset: "linux_x86_64", godotHashKey: "GODOT_SHA256_LINUX_X64",
+	},
+	"linux/arm64": {
+		dotnetRID: "linux-arm64", dotnetExt: "tar.gz", dotnetHashKey: "DOTNET_SHA512_LINUX_ARM64",
+		godotAsset: "linux_arm64", godotHashKey: "GODOT_SHA256_LINUX_ARM64",
+	},
+	"darwin/amd64": {
+		dotnetRID: "osx-x64", dotnetExt: "tar.gz", dotnetHashKey: "DOTNET_SHA512_OSX_X64",
+		godotAsset: "macos.universal", godotHashKey: "GODOT_SHA256_MACOS_UNIVERSAL",
+	},
+	"darwin/arm64": {
+		dotnetRID: "osx-arm64", dotnetExt: "tar.gz", dotnetHashKey: "DOTNET_SHA512_OSX_ARM64",
+		godotAsset: "macos.universal", godotHashKey: "GODOT_SHA256_MACOS_UNIVERSAL",
+	},
 }
 
 func dotnetURL(version, rid, ext string) string {
@@ -154,18 +178,17 @@ func godotURL(version, asset string) string {
 	return fmt.Sprintf("https://github.com/godotengine/godot/releases/download/%s-stable/Godot_v%s-stable_mono_%s.zip", version, version, asset)
 }
 
-// components 返回当前平台应下载的依赖。Windows 额外需要固定 LLVM 与 LLVM-MinGW：
-// clang-cl 包装器强制 -resource-dir=<MinGW>\lib\clang\<major>，驱动版本必须一致。
-// LLVM 用官方 MSI 的管理安装展开到 .tools/llvm：不注册产品、不写系统目录、不需要管理员。
+// components 返回当前平台需要安装的依赖。
+//
+// Windows 额外需要 LLVM 与 LLVM-MinGW：clang-cl 包装器强制 -resource-dir=<MinGW>\lib\clang\<major>，
+// 驱动版本必须与之一致。LLVM 使用官方 MSI 的管理安装展开到 .tools/llvm，不注册产品、
+// 不写系统目录、不需要管理员权限。
 func (c *Config) components() []component {
-	dotnetArchive := "targz"
-	if runtime.GOOS == "windows" {
-		dotnetArchive = "zip"
-	}
+	platform := platformAssets[runtime.GOOS+"/"+runtime.GOARCH]
 	items := []component{
 		{
 			Name: "dotnet", Version: c.DotnetVersion, URL: c.DotnetURL,
-			Hash: c.DotnetHash, HashAlgo: "sha512", Archive: dotnetArchive,
+			Hash: c.DotnetHash, HashAlgo: "sha512", Archive: archiveKind(platform.dotnetExt),
 			TargetDir: filepath.Join(c.ToolsDir, "dotnet"),
 		},
 		{
@@ -174,7 +197,8 @@ func (c *Config) components() []component {
 			TargetDir: filepath.Join(c.ToolsDir, "godot"),
 		},
 	}
-	if runtime.GOOS == "windows" {
+	// 仅 Windows 需要 LLVM 工具链（见上方说明）。
+	if platform.llvmURLKey != "" {
 		items = append(items,
 			component{
 				Name: "llvm", Version: c.LlvmVersion, URL: c.LlvmURL,
@@ -189,6 +213,14 @@ func (c *Config) components() []component {
 		)
 	}
 	return items
+}
+
+// archiveKind 把 Taskfile 中的扩展名映射为 extractArchive 使用的解压种类。
+func archiveKind(ext string) string {
+	if ext == "tar.gz" {
+		return "targz"
+	}
+	return ext
 }
 
 // repoRoot 从当前目录向上查找 Taskfile.yml；TC_REPO_ROOT 可显式覆盖。

@@ -11,13 +11,26 @@ import (
 	"time"
 )
 
+// goToolsComponent 是 --without 可用于跳过 Go 工具安装的名字。
+const goToolsComponent = "gotools"
+
+// bootstrapOptions 是 bootstrap 子命令的参数。
 type bootstrapOptions struct {
-	Skip  map[string]bool
-	Force bool
+	Skip  map[string]bool // 要跳过的组件名（见 components 与 goToolsComponent）
+	Force bool            // 忽略已就绪的标记，全部重装
 }
 
+// parseBootstrapArgs 解析 bootstrap 的参数。
+// 支持 --force、--without a,b（或 --without=a,b）。
 func parseBootstrapArgs(args []string) (bootstrapOptions, error) {
 	opts := bootstrapOptions{Skip: map[string]bool{}}
+	addSkips := func(list string) {
+		for _, name := range strings.Split(list, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				opts.Skip[name] = true
+			}
+		}
+	}
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
@@ -25,19 +38,9 @@ func parseBootstrapArgs(args []string) (bootstrapOptions, error) {
 			opts.Force = true
 		case arg == "--without" && i+1 < len(args):
 			i++
-			for _, name := range strings.Split(args[i], ",") {
-				name = strings.TrimSpace(name)
-				if name != "" {
-					opts.Skip[name] = true
-				}
-			}
+			addSkips(args[i])
 		case strings.HasPrefix(arg, "--without="):
-			for _, name := range strings.Split(strings.TrimPrefix(arg, "--without="), ",") {
-				name = strings.TrimSpace(name)
-				if name != "" {
-					opts.Skip[name] = true
-				}
-			}
+			addSkips(strings.TrimPrefix(arg, "--without="))
 		default:
 			return opts, fmt.Errorf("未知参数 %q", arg)
 		}
@@ -45,6 +48,8 @@ func parseBootstrapArgs(args []string) (bootstrapOptions, error) {
 	return opts, nil
 }
 
+// runBootstrap 按顺序完成引导：Go 工具 -> 各组件 -> NuGet 还原 -> 写映射文件 -> 报告。
+// 任一步失败立即返回，已完成的步骤保留，重跑时会跳过已就绪的部分。
 func runBootstrap(opts bootstrapOptions) error {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -61,7 +66,7 @@ func runBootstrap(opts bootstrapOptions) error {
 	fmt.Printf("引导 riftcards 依赖：%s/%s\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("安装目录：%s\n\n", relToRepo(cfg.ToolsDir))
 
-	if !opts.Skip["gotools"] {
+	if !opts.Skip[goToolsComponent] {
 		if err := installGoTools(cfg, opts.Force); err != nil {
 			return err
 		}
@@ -93,14 +98,14 @@ func runBootstrap(opts bootstrapOptions) error {
 	return nil
 }
 
-// llvmToolsOfInterest 是本项目关心的 LLVM 工具；用于确认官方发行物里实际包含哪些。
+// llvmToolsOfInterest 是本项目关心的 LLVM 工具清单，用于确认 MSI 管理安装实际产出了什么。
 var llvmToolsOfInterest = []string{
 	"clang", "clang-cl", "clang++", "lld", "lld-link", "llvm-ar", "llvm-rc",
 	"clang-format", "clang-tidy", "clangd",
 }
 
-// reportLLVMTools 在 .tools/llvm 中定位 clang-cl 所在目录，并列出工具清单。
-// 结果来自实际解压的文件，而不是假设。
+// reportLLVMTools 在 .tools/llvm 中定位 clang-cl 所在目录，逐个检查 llvmToolsOfInterest 是否存在。
+// 结果来自磁盘上的实际文件，不做假设；找不到 clang-cl 时静默返回（非 Windows 或未安装 LLVM）。
 func reportLLVMTools(cfg *Config) {
 	clangCl, err := findLlvmClangCl(filepath.Join(cfg.ToolsDir, "llvm"))
 	if err != nil {
@@ -119,7 +124,8 @@ func reportLLVMTools(cfg *Config) {
 	fmt.Println()
 }
 
-// cleanPartialDownloads 清掉上次被中断的 *.part，避免缓存目录里留下半成品。
+// cleanPartialDownloads 删除缓存目录中上次被中断留下的 *.part 文件。
+// 这些文件从未通过哈希校验，不能复用，也不能让它们长期占用空间。
 func cleanPartialDownloads(cacheDir string) {
 	entries, err := os.ReadDir(cacheDir)
 	if err != nil {
@@ -132,6 +138,28 @@ func cleanPartialDownloads(cacheDir string) {
 	}
 }
 
+// goTool 描述一个通过 go install 获取的命令行工具。
+type goTool struct {
+	Name       string   // 可执行文件名（不含平台后缀）
+	Package    string   // go install 的包路径
+	Version    string   // 锁定版本（如 v2.14.0）
+	VersionArg []string // 打印版本号所用的参数
+	// UseGOPATHBin 为 true 时装到 Go 约定的 GOPATH/bin，让开发者直接执行；
+	// 否则装到仓库内 .tools/bin。
+	UseGOPATHBin bool
+}
+
+// goTools 是引导器需要的全部 Go 工具。版本取自 Taskfile.yml（经 Config 传入）。
+func (c *Config) goTools() []goTool {
+	return []goTool{
+		{Name: "task", Package: "github.com/go-task/task/v3/cmd/task", Version: c.TaskVersion, VersionArg: []string{"--version"}, UseGOPATHBin: true},
+		{Name: "golangci-lint", Package: "github.com/golangci/golangci-lint/v2/cmd/golangci-lint", Version: c.GolangciLintVersion, VersionArg: []string{"version"}},
+		{Name: "govulncheck", Package: "golang.org/x/vuln/cmd/govulncheck", Version: c.GovulncheckVersion, VersionArg: []string{"-version"}},
+	}
+}
+
+// installGoTools 逐个确认 goTools 是否已是锁定版本，不是则 go install。
+// 已存在的工具（包括 PATH 中的）若版本匹配则直接复用。
 func installGoTools(cfg *Config, force bool) error {
 	fmt.Println("Go 工具")
 	gopathBin, err := goPathBin()
@@ -139,42 +167,36 @@ func installGoTools(cfg *Config, force bool) error {
 		return err
 	}
 
-	items := []struct {
-		name string
-		pkg  string
-		ver  string
-		args []string
-		dest string
-	}{
-		{"task", "github.com/go-task/task/v3/cmd/task", cfg.TaskVersion, []string{"--version"}, filepath.Join(gopathBin, "task"+exeSuffix())},
-		{"golangci-lint", "github.com/golangci/golangci-lint/v2/cmd/golangci-lint", cfg.GolangciLintVersion, []string{"version"}, filepath.Join(cfg.BinDir, "golangci-lint"+exeSuffix())},
-		{"govulncheck", "golang.org/x/vuln/cmd/govulncheck", cfg.GovulncheckVersion, []string{"-version"}, filepath.Join(cfg.BinDir, "govulncheck"+exeSuffix())},
-	}
-	for _, item := range items {
-		version := strings.TrimPrefix(item.ver, "v")
-		if existing := firstExisting(item.dest, which(item.name)); !force && toolVersionMatches(existing, item.ver, item.args...) {
-			fmt.Printf("  OK   %s %s（使用已有 %s）\n", item.name, version, relToRepo(existing))
+	for _, tool := range cfg.goTools() {
+		version := strings.TrimPrefix(tool.Version, "v")
+		dest := filepath.Join(cfg.BinDir, tool.Name+exeSuffix())
+		if tool.UseGOPATHBin {
+			dest = filepath.Join(gopathBin, tool.Name+exeSuffix())
+		}
+		if existing := firstExisting(dest, which(tool.Name)); !force && toolVersionMatches(existing, tool.Version, tool.VersionArg...) {
+			fmt.Printf("  OK   %s %s（使用已有 %s）\n", tool.Name, version, relToRepo(existing))
 			continue
 		}
 		gobin := cfg.BinDir
-		if item.name == "task" {
-			// Task 需要能被开发者直接执行，装到 Go 约定的 GOPATH/bin。
+		if tool.UseGOPATHBin {
 			gobin = ""
 		}
-		if err := goInstall(gobin, item.pkg, item.ver); err != nil {
+		if err := goInstall(gobin, tool.Package, tool.Version); err != nil {
 			return err
 		}
-		fmt.Printf("  OK   %s %s -> %s\n", item.name, version, relToRepo(item.dest))
+		fmt.Printf("  OK   %s %s -> %s\n", tool.Name, version, relToRepo(dest))
 	}
 	fmt.Println()
 	return nil
 }
 
+// goInstall 执行 go install pkg@version。gobin 为空时装到 Go 默认的 GOBIN/GOPATH 位置。
 func goInstall(gobin, pkg, version string) error {
 	env := os.Environ()
 	if gobin != "" {
 		env = append(env, "GOBIN="+gobin)
 	} else {
+		// 清空 GOBIN，让 go install 落到 GOPATH/bin。
 		env = append(env, "GOBIN=")
 	}
 	target := pkg + "@" + version
@@ -185,7 +207,8 @@ func goInstall(gobin, pkg, version string) error {
 	return nil
 }
 
-// toolVersionMatches 运行工具的版本命令，确认输出里出现锁定版本号。
+// toolVersionMatches 运行工具的版本命令，若输出中包含锁定版本号（忽略前导 v）则返回 true。
+// 用来判断已有工具是否可复用，而不是只看它是否存在。
 func toolVersionMatches(bin, version string, args ...string) bool {
 	if bin == "" {
 		return false
@@ -228,11 +251,13 @@ func ensureComponent(cfg *Config, comp component, force bool) error {
 	return nil
 }
 
-// componentMarker 记录版本与锁定哈希：切换资产（例如 tar.xz 改 MSI）时会失效重装。
+// componentMarker 生成组件的就绪标记：版本号加锁定哈希。
+// 哈希一并写入，是为了在资产地址或格式变化（同版本不同文件）时让旧安装自动失效。
 func componentMarker(comp component) string {
 	return comp.Version + " " + strings.ToLower(comp.Hash)
 }
 
+// componentReady 判断组件是否已安装且可用：标记匹配，并且能定位到关键可执行文件。
 func componentReady(cfg *Config, comp component) bool {
 	content, err := os.ReadFile(filepath.Join(comp.TargetDir, ".version"))
 	if err != nil || strings.TrimSpace(string(content)) != componentMarker(comp) {
@@ -255,7 +280,8 @@ func componentReady(cfg *Config, comp component) bool {
 	return false
 }
 
-// prepareComponent 做解压后的补充处理：定位可执行文件、补执行位、生成 shim。
+// prepareComponent 在解压之后做收尾：校验关键产物存在、补执行位，并为 Godot 生成稳定的 shim。
+// 返回错误意味着安装失败，调用方不会写入 .version 标记。
 func prepareComponent(cfg *Config, comp component) error {
 	switch comp.Name {
 	case "dotnet":
@@ -295,7 +321,8 @@ func prepareComponent(cfg *Config, comp component) error {
 	return nil
 }
 
-// waitForFind 轮询定位结果，用于可能异步完成的安装。
+// waitForFind 反复调用 find，直到它成功或超时。用于 MSI 管理安装这类可能异步完成的步骤。
+// 轮询间隔 2 秒。
 func waitForFind(root string, timeout time.Duration, find func(string) (string, error)) (string, error) {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
@@ -312,6 +339,8 @@ func waitForFind(root string, timeout time.Duration, find func(string) (string, 
 	}
 }
 
+// restoreNuGet 用锁定的 .NET SDK 按 packages.lock.json 还原三个项目（--locked-mode）。
+// 若 .NET SDK 不可用则跳过并提示。
 func restoreNuGet(cfg *Config) error {
 	paths := resolvePaths(cfg)
 	if paths.Dotnet == "" {

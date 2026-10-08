@@ -19,7 +19,10 @@ import (
 	"time"
 )
 
-// fetchArchive 返回缓存中的归档路径，必要时下载并按锁定哈希校验。
+// fetchArchive 返回缓存中已通过哈希校验的归档路径。
+//
+// 流程：命中缓存且哈希正确则直接复用；否则下载到 *.part，校验通过后再改名入缓存。
+// 任何失败都不会在缓存目录留下未校验的文件。
 func fetchArchive(c component, cacheDir string) (string, error) {
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return "", err
@@ -53,7 +56,8 @@ func fetchArchive(c component, cacheDir string) (string, error) {
 	return dest, nil
 }
 
-// cacheName 由 URL 得到缓存文件名，并还原百分号转义，避免出现 clang%2Bllvm 这类名字。
+// cacheName 由 URL 得到缓存文件名：去掉查询串并还原百分号转义
+// （例如 clang%2Bllvm 变为 clang+llvm）。
 func cacheName(rawURL string) string {
 	trimmed := strings.SplitN(rawURL, "?", 2)[0]
 	base := filepath.Base(trimmed)
@@ -64,6 +68,10 @@ func cacheName(rawURL string) string {
 	return decoded
 }
 
+// downloadRounds 是每个通道的最大尝试轮数；轮与轮之间退避递增。
+const downloadRounds = 3
+
+// download 把 url 下载到 dest。依次尝试所有下载通道，整轮失败后退避重试。
 func download(url, dest string) error {
 	attempts := downloadAttempts()
 	labels := make([]string, 0, len(attempts))
@@ -73,7 +81,7 @@ func download(url, dest string) error {
 	fmt.Printf("  下载通道：%s\n", strings.Join(labels, "、"))
 
 	var lastErr error
-	for round := 1; round <= 3; round++ {
+	for round := 1; round <= downloadRounds; round++ {
 		for _, attempt := range attempts {
 			start := time.Now()
 			err := downloadOnce(attempt.client, url, dest)
@@ -90,13 +98,16 @@ func download(url, dest string) error {
 	return fmt.Errorf("下载 %s 失败：%w", url, lastErr)
 }
 
+// downloadAttempt 是一条下载通道：一个标签（用于日志）加上一个 HTTP 客户端。
 type downloadAttempt struct {
 	label  string
 	client *http.Client
 }
 
-// downloadAttempts 返回可用的下载通道：默认网络（尊重 HTTP(S)_PROXY）与 Windows
-// 系统代理。某些代理能取 .NET 资产却在 GitHub 资产上 EOF，因此两条通道都试。
+// downloadAttempts 返回可用的下载通道，按优先级排序：
+// 1. 默认网络（尊重 HTTP(S)_PROXY 等环境变量）；
+// 2. Windows 系统代理（Go 不会自动读取，需要从注册表取）。
+// 实测两条通道的可达性不同：有的主机直连能通，有的必须走代理，所以两条都试。
 func downloadAttempts() []downloadAttempt {
 	attempts := []downloadAttempt{{label: "默认网络", client: newHTTPClient("")}}
 	if proxy := fallbackProxy(); proxy != "" {
@@ -105,6 +116,7 @@ func downloadAttempts() []downloadAttempt {
 	return attempts
 }
 
+// downloadOnce 用一条通道下载一次，只要非 200 或读写出错就返回错误。
 func downloadOnce(client *http.Client, url, dest string) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -134,29 +146,37 @@ func downloadOnce(client *http.Client, url, dest string) error {
 	return out.Sync()
 }
 
-// newHTTPClient 克隆默认传输，使 HTTP(S)_PROXY 等环境变量继续生效；proxy 非空时
-// 显式使用该代理（Go 不会自动读取 Windows 系统代理）。
+// newHTTPClient 基于默认传输创建客户端。proxy 为空时沿用 HTTP(S)_PROXY 等环境变量；
+// 非空时显式使用该代理。
+//
+// 刻意保留默认的 HTTP/2：实测强制 HTTP/1.1 时 GitHub 资产会立刻 EOF，而默认传输能正常取数据。
 func newHTTPClient(proxy string) *http.Client {
 	transport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
-		return &http.Client{Timeout: 30 * time.Minute}
+		return &http.Client{Timeout: downloadTimeout}
 	}
 	cloned := transport.Clone()
-	// 保留默认的 HTTP/2：实测强制 HTTP/1.1 时 GitHub 资产会立刻 EOF，而默认传输
-	// 能正常取到数据；代理通道同样使用默认协议。
 	if proxy != "" {
 		if parsed, err := url.Parse(proxy); err == nil {
 			cloned.Proxy = http.ProxyURL(parsed)
 		}
 	}
-	return &http.Client{Timeout: 30 * time.Minute, Transport: cloned}
+	return &http.Client{Timeout: downloadTimeout, Transport: cloned}
 }
 
+// downloadTimeout 是单次下载的上限，覆盖最大的 LLVM MSI（约 640 MB）在慢网络下的情况。
+const downloadTimeout = 30 * time.Minute
+
+// proxyEnvVars 是 Go 默认会读取的代理环境变量。任一存在时，系统代理探测被跳过。
+var proxyEnvVars = []string{"HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy"}
+
+// fallbackProxy 在 Windows 上从注册表读取用户级代理设置，返回形如 http://host:port 的地址。
+// 非 Windows、已设置代理环境变量、或未启用代理时返回空串。
 func fallbackProxy() string {
 	if runtime.GOOS != "windows" {
 		return ""
 	}
-	for _, name := range []string{"HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy"} {
+	for _, name := range proxyEnvVars {
 		if os.Getenv(name) != "" {
 			return ""
 		}
@@ -168,24 +188,7 @@ func fallbackProxy() string {
 	if server == "" {
 		return ""
 	}
-	// 形如 http=127.0.0.1:7897;https=127.0.0.1:7897 或直接是 host:port。
-	if strings.Contains(server, "=") {
-		chosen := ""
-		for _, part := range strings.Split(server, ";") {
-			scheme, host, ok := strings.Cut(part, "=")
-			if !ok {
-				continue
-			}
-			if strings.EqualFold(strings.TrimSpace(scheme), "https") {
-				chosen = strings.TrimSpace(host)
-				break
-			}
-			if chosen == "" {
-				chosen = strings.TrimSpace(host)
-			}
-		}
-		server = chosen
-	}
+	server = pickProxyServer(server)
 	if server == "" {
 		return ""
 	}
@@ -195,6 +198,33 @@ func fallbackProxy() string {
 	return "http://" + server
 }
 
+// pickProxyServer 从 ProxyServer 的值中选出一个地址。
+//
+// 注册表里有两种形式：直接是 host:port，或按协议分组，如 "http=h:p;https=h:p"。
+// 分组形式优先取 https，其次取第一个可用项。
+func pickProxyServer(value string) string {
+	if !strings.Contains(value, "=") {
+		return strings.TrimSpace(value)
+	}
+	fallback := ""
+	for _, part := range strings.Split(value, ";") {
+		scheme, host, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		host = strings.TrimSpace(host)
+		if strings.EqualFold(strings.TrimSpace(scheme), "https") {
+			return host
+		}
+		if fallback == "" {
+			fallback = host
+		}
+	}
+	return fallback
+}
+
+// regQuery 读取 HKCU 下 Internet Settings 的一个值，返回去掉类型名后的原始数据。
+// 通过 reg.exe 读取，避免引入 golang.org/x/sys 依赖。
 func regQuery(name string) string {
 	out, err := runCapture("reg", "query", `HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`, "/v", name)
 	if err != nil {
@@ -264,7 +294,9 @@ func hashFile(path, algo string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// extractArchive 把归档解压到 destDir；闭包内不允许写出 destDir 之外。
+// extractArchive 按 kind 把 archivePath 展开到 destDir。
+// kind 为 zip、targz（tar.gz）或 msi（仅 Windows）。归档内的路径必须留在 destDir 之内，
+// 见 safeTarget。
 func extractArchive(archivePath, kind, destDir string) error {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return err
@@ -291,8 +323,11 @@ func extractArchive(archivePath, kind, destDir string) error {
 	}
 }
 
-// extractMSI 用 Windows Installer 的管理安装把 MSI 展开到 destDir：
-// 不注册产品、不写系统目录，也不需要管理员权限。
+// extractMSI 用 Windows Installer 的管理安装（msiexec /a）把 MSI 展开到 destDir。
+//
+// 管理安装只复制文件，不注册产品、不写系统目录，也不需要管理员权限。
+// 注意：msiexec 可能把工作交给 Windows Installer 服务异步完成，且对无效包也可能返回 0，
+// 因此调用方必须以“产物是否出现”作为成功判据，而不能只看这里的返回值。
 func extractMSI(archivePath, destDir string) error {
 	if runtime.GOOS != "windows" {
 		return fmt.Errorf("MSI 管理安装仅在 Windows 上可用")
@@ -300,15 +335,15 @@ func extractMSI(archivePath, destDir string) error {
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return err
 	}
-	args := msiInstallArgs(archivePath, destDir)
-	output, err := runCapture("msiexec", args...)
+	output, err := runCapture("msiexec", msiInstallArgs(archivePath, destDir)...)
 	if err != nil {
 		return fmt.Errorf("msiexec 管理安装失败（%v）：%s", err, strings.TrimSpace(output))
 	}
 	return nil
 }
 
-// msiInstallArgs 返回管理安装参数，便于单独测试。
+// msiInstallArgs 返回 msiexec 管理安装的参数：/a 管理安装、/qn 静默、/norestart 不重启、
+// TARGETDIR 指定展开目录。独立成函数是为了便于单测。
 func msiInstallArgs(archivePath, destDir string) []string {
 	return []string{"/a", archivePath, "/qn", "/norestart", "TARGETDIR=" + destDir}
 }

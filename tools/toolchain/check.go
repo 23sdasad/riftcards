@@ -8,14 +8,15 @@ import (
 	"strings"
 )
 
+// versionPattern 匹配至少两段的点分版本号，如 1.27、8.0.425、23.1.3。
 var versionPattern = regexp.MustCompile(`\d+(?:\.\d+)+`)
 
-// parseVersion 提取输出里第一个形如 1.27.0 的版本号。
+// parseVersion 提取文本中第一个点分版本号；找不到时返回空串。
 func parseVersion(text string) string {
 	return versionPattern.FindString(text)
 }
 
-// compareVersions 比较点分数字版本；缺失段按 0 处理。
+// compareVersions 按段比较两个点分版本号：返回 -1、0 或 1。缺失的段视为 0（1.27 等于 1.27.0）。
 func compareVersions(a, b string) int {
 	as := strings.Split(parseVersion(a), ".")
 	bs := strings.Split(parseVersion(b), ".")
@@ -47,13 +48,15 @@ func majorVersion(version string) string {
 	return major
 }
 
+// checkResult 是单个依赖的检查结果。Status 为 OK、WARN（可用但版本不符）或 MISSING（不可用）。
 type checkResult struct {
 	Name    string
 	Status  string
 	Detail  string
-	Install string
+	Install string // 缺失时给出的安装入口
 }
 
+// runCheck 逐项检查依赖，输出 OK/WARN/MISSING 表格；存在 MISSING 时返回错误（退出码非零）。
 func runCheck() error {
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -78,12 +81,12 @@ func runCheck() error {
 			"LLVM "+cfg.LlvmVersion+"（Windows cgo 见 tools/llvm/clang-cl.cmd）", installEntry),
 	}
 	if runtime.GOOS == "windows" {
-		result := checkResult{Name: "llvm-mingw", Status: "OK", Detail: relToRepo(paths.LlvmMingwRoot), Install: installEntry}
+		mingw := checkResult{Name: "llvm-mingw", Status: "OK", Detail: relToRepo(paths.LlvmMingwRoot), Install: installEntry}
 		if paths.LlvmMingwRoot == "" {
-			result.Status = "MISSING"
-			result.Detail = "需要 LLVM-MinGW " + cfg.MingwVersion
+			mingw.Status = "MISSING"
+			mingw.Detail = "需要 LLVM-MinGW " + cfg.MingwVersion
 		}
-		results = append(results, result)
+		results = append(results, mingw)
 	}
 
 	fmt.Println("环境检查（riftcards）")
@@ -105,6 +108,12 @@ func runCheck() error {
 	return nil
 }
 
+// checkTool 检查单个工具：能否执行、版本输出能否解析，以及版本是否符合要求。
+//
+//   - exact 为 true：必须与 pinned 完全一致，否则 WARN（用于 go install 锁定的工具）；
+//   - exact 为 false：只要求不低于 pinned（用于 .NET、LLVM 等“最低版本”口径）。
+//
+// 只有不能执行时才返回 MISSING；版本不符只是 WARN，不阻断 task 命令。
 func checkTool(name, bin, pinned string, exact bool, args []string, requirement, install string) checkResult {
 	if bin == "" {
 		return checkResult{Name: name, Status: "MISSING", Detail: "需要 " + requirement, Install: install}
@@ -130,7 +139,8 @@ func checkTool(name, bin, pinned string, exact bool, args []string, requirement,
 	return checkResult{Name: name, Status: "OK", Detail: line}
 }
 
-// versionLine 优先取包含工具名的输出行：govulncheck 等工具的首行是 Go 版本。
+// versionLine 从版本命令的输出中选出代表工具自身版本的一行。
+// 优先取包含工具名的行，因为 govulncheck 等工具的第一行是 Go 版本；找不到时退回首行。
 func versionLine(name, output string) string {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
