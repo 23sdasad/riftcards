@@ -66,4 +66,4 @@ ai-docs/
 | 012 | [统一 Taskfile 命令入口与版本锁定](task/012-taskfile-command-entry.md) | 011 | done |
 | 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |
 | 014 | [用 Go 引导全部依赖](task/014-go-toolchain-bootstrap.md) | 012 | done |
-| 015 | [Windows LLVM 改用官方 MSI 管理安装](task/015-windows-llvm-msi.md) | 014 | in-progress |
+| 015 | [Windows LLVM 改用官方 MSI 管理安装](task/015-windows-llvm-msi.md) | 014 | done |

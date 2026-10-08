@@ -1,6 +1,6 @@
 # 015 — Windows LLVM 改用官方 MSI 管理安装
 
-- 状态：in-progress
+- 状态：done
 - 依赖：014
 - 优先级：P1
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -59,7 +59,7 @@ MSI 可以用**管理安装**（administrative install）把文件展开到指�
 - [x] Windows LLVM 由官方 MSI 经管理安装展开到 `.tools/llvm`，不写系统目录、不需要管理员权限。
 - [x] 引导器只依赖 Go 标准库（`go.mod` 无 `require`，`go.sum` 已删除）。
 - [x] 找不到 `clang-cl`/`clang` 时给出清晰错误，MSI 失败时输出退出码；成功判据是轮询定位到 `clang-cl`。
-- [ ] `task ci` 与三平台 CI 通过（Windows 用 MSI 安装的 LLVM 跑 `go test -race`）：本机 `task ci` 已通过，CI 待推送确认。
+- [x] `task ci` 与三平台 CI 通过（Windows 用 MSI 安装的 LLVM 跑 `go test -race`，run 37824684913）。
 
 ## 验证计划与结果
 
@@ -68,7 +68,7 @@ MSI 可以用**管理安装**（administrative install）把文件展开到指�
 | 2026-10-08 | Windows / `go test ./...`（tools/toolchain） | 通过 | 通过：MSI 参数构造、非 Windows 拒绝 MSI、缓存文件名解码等用例通过；模块已无第三方依赖 |
 | 2026-10-08 | Windows / `msiexec /a <不存在的包> /qn /norestart TARGETDIR=…` | 报错 | 退出码为 0：msiexec 把工作交给 Windows Installer 服务，不能只信退出码。因此解压后以“能否定位到 `clang-cl`”为成功判据并轮询等待（最多 5 分钟） |
 | 2026-10-08 | Windows / `task ci` | 通过 | 通过：`task ci` 全绿（golangci-lint 0 issues、C# 构建 0 警告、`go test -race` 含 proc、toolchain 单测、`dotnet test` 4 通过） |
-| — | GitHub Actions Windows | MSI 下载、展开、race 通过 | 未执行 |
+| 2026-10-08 | GitHub Actions run [37824684913](https://github.com/23sdasad/riftcards/actions/runs/37824684913)（`eac2a7c`） | Windows 用 MSI 安装的 LLVM 跑 race，三平台通过 | 通过：ubuntu 2m38s、windows 4m56s、macos 3m1s；Windows 从 639 MB MSI 管理安装出 `clang-cl` 并跑通 `go test -race` |
 
 ## 风险与回退
 
@@ -82,4 +82,4 @@ MSI 可以用**管理安装**（administrative install）把文件展开到指�
 
 ## 完成摘要
 
-Windows 的 LLVM 改为官方 `LLVM-23.1.3-win64.msi`（639 MB，SHA256 固定）经 Windows Installer 管理安装展开到 `.tools/llvm`：`msiexec /a <msi> /qn /norestart TARGETDIR=<.tools/llvm>`，不注册产品、不写系统目录、不需要管理员权限。由于 msiexec 的退出码不可靠，成功判据是解压后轮询定位到 `clang-cl`（最多 5 分钟）。同时删除 `github.com/ulikunitz/xz` 依赖与 `.tar.xz` 分支，引导器回到纯标准库；组件就绪标记改为“版本 + 锁定哈希”，切换资产时自动重装。本机 `task ci` 与引导器单测通过；Windows CI 的 MSI 下载与展开待推送确认。
+Windows 的 LLVM 改为官方 `LLVM-23.1.3-win64.msi`（639 MB，SHA256 固定）经 Windows Installer 管理安装展开到 `.tools/llvm`：`msiexec /a <msi> /qn /norestart TARGETDIR=<.tools/llvm>`，不注册产品、不写系统目录、不需要管理员权限。由于 msiexec 的退出码不可靠，成功判据是解压后轮询定位到 `clang-cl`（最多 5 分钟）。同时删除 `github.com/ulikunitz/xz` 依赖与 `.tar.xz` 分支，引导器回到纯标准库；组件就绪标记改为“版本 + 锁定哈希”，切换资产时自动重装。三平台 CI 通过（run 37824684913：ubuntu 2m38s、windows 4m56s、macos 3m1s），Windows 用 MSI 安装的 `clang-cl` 跑通 `go test -race`；下载体积与耗时都优于原 `.tar.xz` 方案。

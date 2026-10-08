@@ -65,7 +65,7 @@
 - [x] 正常退出、非零退出、标准错误、标准输入、取消、超时、进程树终止都有测试。
 - [x] 取消或超时后不遗留子进程；结果中可区分 `Canceled` 与 `TimedOut`。
 - [x] `game`、`match`、`protocol` 不依赖 `proc`（依赖方向写入边界文档与 AGENTS）。
-- [ ] `task ci` 与三平台 CI 通过：本机 `task ci` 已通过，CI 待推送确认。
+- [x] `task ci` 与三平台 CI 通过（run 37824684913 已包含本包，三平台全绿）。
 
 ## 验证计划与结果
 
@@ -74,7 +74,7 @@
 | 2026-10-08 | Windows / `go vet ./internal/platform/proc` | 无问题 | 通过 |
 | 2026-10-08 | Windows / `go test ./internal/platform/proc` | 全部场景通过 | 通过：参数数组/工作目录/环境、非零退出与标准错误、标准输入、超时、取消、孙进程随进程树终止、输出截断、`LookPath`（平台后缀、拒绝带分隔符名字、`ErrNotFound`）、`HostOS` 与运行时一致 |
 | 2026-10-08 | Windows / `task ci` | 门禁通过 | 通过：`proc` 在 `-race` 下 10.45s 通过；其余 Go/C# 门禁保持绿色 |
-| — | GitHub Actions 三平台 | 通过 | 未执行 |
+| 2026-10-08 | GitHub Actions run [37824684913](https://github.com/23sdasad/riftcards/actions/runs/37824684913) | 三平台通过 | 通过：ubuntu 2m38s、windows 4m56s、macos 3m1s，`task ci` 含 `proc` 的 race 测试 |
 
 ## 风险与回退
 
