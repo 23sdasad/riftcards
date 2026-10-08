@@ -1,5 +1,6 @@
 using Riftcards.Client.Core.Protocol;
 using Riftcards.Client.Core.Session;
+using Xunit;
 
 namespace Riftcards.Client.Core.Tests;
 
@@ -85,6 +86,12 @@ public sealed class GameSessionTests
         public void Receive(string text)
         {
             TextReceived?.Invoke(text);
+        }
+
+        public void Disconnect(string? reason = null)
+        {
+            IsOpen = false;
+            Disconnected?.Invoke(reason);
         }
     }
 }

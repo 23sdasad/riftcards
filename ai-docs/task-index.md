@@ -24,7 +24,8 @@ ai-docs/
     ├── 009-event-queue-presentation.md
     ├── 010-local-end-to-end.md
     ├── 011-github-actions-ci.md
-    └── 012-remove-taskfile.md
+    ├── 012-remove-taskfile.md
+    └── 013-toolchain-gate-repair.md
 ```
 
 1. 复制[模板](task/_template.md)为 `task/NNN-kebab-case.md`，编号取当前最大编号加一，不复用；填写范围与可判断的验收条件。
@@ -61,3 +62,4 @@ ai-docs/
 | 010 | [本地端到端验收](task/010-local-end-to-end.md) | 007、008、009 | planned |
 | 011 | [GitHub Actions CI](task/011-github-actions-ci.md) | 001 | done |
 | 012 | [删除 Taskfile 并切换直接命令](task/012-remove-taskfile.md) | 011 | done |
+| 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |

@@ -23,14 +23,14 @@ func DefaultCatalog() map[string]CardDefinition {
 
 func buildStarterDeck(catalog map[string]CardDefinition, seat int) []CardInstance {
 	counts := map[string]int{
-		"ember_squire":  4,
-		"flame_imp":     3,
-		"raider":        4,
-		"shield_bearer": 4,
+		"ember_squire":   4,
+		"flame_imp":      3,
+		"raider":         4,
+		"shield_bearer":  4,
 		"stone_sentinel": 3,
-		"royal_guard":   2,
-		"arcane_bolt":   6,
-		"healing_light": 4,
+		"royal_guard":    2,
+		"arcane_bolt":    6,
+		"healing_light":  4,
 	}
 
 	deck := make([]CardInstance, 0, 30)

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	StartingHeroHP = 30
+	StartingHeroHP  = 30
 	OpeningHandSize = 4
 	HandLimit       = 8
 	BoardLimit      = 5
@@ -19,11 +19,11 @@ func HeroID(seat int) string {
 
 func NewMatch(matchID string, seed int64) (*State, []Event) {
 	state := &State{
-		MatchID:  matchID,
-		Status:   StatusActive,
-		catalog:  DefaultCatalog(),
-		rng:      rand.New(rand.NewSource(seed)),
-		Players:  [2]PlayerState{},
+		MatchID:   matchID,
+		Status:    StatusActive,
+		catalog:   DefaultCatalog(),
+		rng:       rand.New(rand.NewSource(seed)),
+		Players:   [2]PlayerState{},
 		firstSeat: 0,
 	}
 
@@ -342,8 +342,8 @@ func (s *State) draw(seat, count int, emit bool) {
 			player.HP -= player.Fatigue
 			if emit {
 				s.emit(seat, VisibilityPublic, "fatigue_damage", map[string]any{
-					"seat":   seat,
-					"amount": player.Fatigue,
+					"seat":    seat,
+					"amount":  player.Fatigue,
 					"hpAfter": player.HP,
 				})
 			}

@@ -18,6 +18,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 - [技术栈](ai-docs/contracts/tech-stack.md)
 - [第三方库调研](ai-docs/contracts/library-research.md)
 - [Path 与工程边界](ai-docs/architecture/paths-and-boundaries.md)
+- [LLVM 工具链](tools/llvm/README.md)
 - [AI 协作文档](ai-docs/README.md)
 - [任务工作流](ai-docs/task-index.md)
 - [提交规范](ai-docs/standards/commits.md)
@@ -41,6 +42,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 │  ├─ src/Godot/            # Godot WebSocket 适配层
 │  └─ tests/                # 纯 .NET 单元测试
 ├─ .github/workflows/       # GitHub Actions 三平台 CI
+├─ tools/llvm/              # 固定 LLVM 编译器、clang-cl 包装器和检查工具说明
 └─ AGENTS.md                # 后续 AI/自动化代理必须遵守的入口
 ```
 
@@ -49,7 +51,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 工具链版本见 [技术栈](ai-docs/contracts/tech-stack.md)。首次使用先安装 Go、.NET SDK 和带 .NET 支持的 Godot；跨平台统一 shell 由 task 004 提供，当前按以下直接命令执行。
 
 ```powershell
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
 go install golang.org/x/vuln/cmd/govulncheck@latest
 
 gofmt -w server/cmd server/internal
@@ -58,7 +60,7 @@ dotnet format client/Riftcards.Client.csproj
 dotnet format client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj
 
 go -C server vet ./...
-go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6 run ./...
+go -C server run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...
 dotnet build client/src/Core/Riftcards.Client.Core.csproj --warnaserror
 dotnet build client/Riftcards.Client.csproj --warnaserror
 
@@ -68,6 +70,8 @@ dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests
 go -C server run ./cmd/riftcards-server -addr 127.0.0.1:8080
 godot --path client --editor
 ```
+
+`go test -race` 与 cgo 使用仓库固定的 LLVM 23.1.3。Windows 需要按 [LLVM 工具链](tools/llvm/README.md)设置 `LLVM_MINGW_ROOT`、`CC` 和 `CXX`；Linux/macOS 使用 `CC=clang`、`CXX=clang++`。
 
 `.github/workflows/ci.yml` 在 Windows、macOS、Linux 上直接运行同一组 Go 与 .NET 门禁；仅修改文档时跳过完整构建。
 

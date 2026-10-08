@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Riftcards.Client.Core.Protocol;
+using Xunit;
 
 namespace Riftcards.Client.Core.Tests;
 

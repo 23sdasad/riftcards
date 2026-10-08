@@ -5,9 +5,9 @@ import "math/rand"
 type CommandType string
 
 const (
-	CommandPlayCard CommandType = "play_card"
-	CommandAttack   CommandType = "attack"
-	CommandEndTurn  CommandType = "end_turn"
+	CommandPlayCard  CommandType = "play_card"
+	CommandAttack    CommandType = "attack"
+	CommandEndTurn   CommandType = "end_turn"
 	CommandSurrender CommandType = "surrender"
 )
 

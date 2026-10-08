@@ -28,10 +28,76 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     env:
+      CGO_ENABLED: "1"
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "true"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read LLVM version
+        id: llvm-version
+        shell: bash
+        run: echo "version=$(cat tools/llvm/VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: ${{ steps.llvm-version.outputs.version }}
+          directory: ${{ runner.temp }}/llvm
+
+      - name: Configure LLVM compiler (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          echo "CC=clang" >> "$GITHUB_ENV"
+          echo "CXX=clang++" >> "$GITHUB_ENV"
+
+      - name: Configure LLVM compiler (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "llvm-mingw.zip"
+          $directory = Join-Path $env:RUNNER_TEMP "llvm-mingw"
+          Invoke-WebRequest `
+            -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/20260908/llvm-mingw-20260908-ucrt-x86_64.zip" `
+            -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $directory
+          $root = Get-ChildItem -LiteralPath $directory -Directory |
+            Select-Object -First 1 -ExpandProperty FullName
+          "LLVM_MINGW_ROOT=$root" >> $env:GITHUB_ENV
+          "LLVM_CLANG_CL=clang-cl" >> $env:GITHUB_ENV
+          "CC=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
+          "CXX=$env:GITHUB_WORKSPACE\tools\llvm\clang-cl.cmd" >> $env:GITHUB_ENV
+
+      - name: Verify LLVM tools
+        shell: bash
+        run: |
+          clang --version
+          clang-format --version
+          clang-tidy --version
+          clangd --version
+
+      - name: Check C/C++ with LLVM
+        shell: bash
+        run: |
+          sources_file="$RUNNER_TEMP/llvm-sources.txt"
+          git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' > "$sources_file"
+          if [ ! -s "$sources_file" ]; then
+            echo "No C/C++ sources to check."
+            exit 0
+          fi
+          while IFS= read -r source; do
+            clang-format --dry-run --Werror "$source"
+            case "$source" in
+              *.c|*.h)
+                language_standard=c11
+                ;;
+              *)
+                language_standard=c++20
+                ;;
+            esac
+            clang-tidy "$source" -- "-std=$language_standard"
+          done < "$sources_file"
 
       - uses: actions/setup-go@v5
         with:
@@ -44,7 +110,7 @@ jobs:
       - name: Install golangci-lint
         shell: bash
         run: |
-          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.1.6
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4

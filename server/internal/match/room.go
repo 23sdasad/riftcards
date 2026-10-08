@@ -11,12 +11,12 @@ import (
 type Room struct {
 	id string
 
-	mu        sync.Mutex
-	state     *game.State
-	peers     [2]Peer
-	eventLog  []game.Event
-	started   bool
-	finished  bool
+	mu       sync.Mutex
+	state    *game.State
+	peers    [2]Peer
+	eventLog []game.Event
+	started  bool
+	finished bool
 }
 
 func NewRoom(id string, seed int64, peers [2]Peer) (*Room, error) {
@@ -43,7 +43,6 @@ func (r *Room) Start() {
 		r.state.ViewForSeat(0),
 		r.state.ViewForSeat(1),
 	}
-	lastEventSeq := r.state.LastEventSeq
 	peers := r.peers
 	r.mu.Unlock()
 
@@ -91,6 +90,7 @@ func (r *Room) Submit(seat int, request protocol.MatchCommandRequest) {
 		r.state.ViewForSeat(0),
 		r.state.ViewForSeat(1),
 	}
+	lastEventSeq := r.state.LastEventSeq
 	peers := r.peers
 	r.mu.Unlock()
 

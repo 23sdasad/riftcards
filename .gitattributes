@@ -16,3 +16,5 @@
 *.tscn text
 *.gd text
 *.godot text
+*.uid text
+*.cmd text eol=crlf

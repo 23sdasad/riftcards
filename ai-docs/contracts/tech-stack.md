@@ -6,7 +6,7 @@
 
 | 层 | 选择 | 用途 | 状态 |
 | --- | --- | --- | --- |
-| 客户端 | Godot 4.4+，.NET 8 | 场景、渲染、输入 | 骨架已接入 |
+| 客户端 | Godot 4.7.2，.NET 8 target | 场景、渲染、输入 | 骨架已接入 |
 | 客户端网络 | Godot `WebSocketPeer` | WebSocket 文本帧 | 骨架已接入 |
 | 客户端协议 | `System.Text.Json` | JSON DTO 和事件载荷 | 骨架已接入 |
 | 客户端核心 | 纯 .NET 类库 | 协议、会话、回放缓存 | 骨架已接入 |
@@ -20,6 +20,7 @@
 | 格式化 | `gofmt`、`dotnet format` | 两端格式化 | 已接入 |
 | 静态检查 | `go vet`、`golangci-lint` | Go 静态分析 | 已接入 |
 | 安全扫描 | `govulncheck` | Go 依赖漏洞扫描 | 已接入 |
+| LLVM / cgo | LLVM 23.1.3，Windows `clang-cl` | race、交叉语言编译边界和检查工具 | 已固定 |
 | 命令入口 | 直接命令；跨平台 shell 待接入 | 格式化、检查、测试和运行 | 过渡中 |
 
 ## 为什么服务端选择 Go
@@ -74,10 +75,12 @@ client/
 
 - Go：1.25 或更新，实际以 `server/go.mod` 为准。
 - .NET SDK：8.0 或更新。
-- Godot：4.4 或更新，必须使用 .NET 版本。
-- golangci-lint：v2.x。
+- Godot：4.7.2，必须使用 .NET 版本。
+- golangci-lint：2.14.0。
+- LLVM：23.1.3；Windows cgo 运行时使用 LLVM-MinGW UCRT 23.1.1-20260908。
 
 Godot 版本和 `Godot.NET.Sdk` 版本必须匹配。升级 Godot 时同步修改 `client/Riftcards.Client.csproj` 中的 SDK 版本并运行客户端编译。
+LLVM 版本以 `tools/llvm/VERSION` 为唯一事实来源；三平台 CI 使用同一版本，Windows 编译器入口为 `tools/llvm/clang-cl.cmd`。
 
 ## 运行
 
@@ -93,8 +96,9 @@ godot --path client --editor
 `.github/workflows/ci.yml` 在 Windows、macOS、Linux 三平台运行同一门禁：
 
 1. Go 格式只读检查：`gofmt -l`。
-2. `go vet`、`golangci-lint`、`dotnet build --warnaserror` 和 `dotnet format --verify-no-changes`。
-3. `go test -race` 和 `dotnet test`。
+2. 安装固定的 LLVM，校验 `clang`、`clang-cl`、`clang-format`、`clang-tidy` 和 `clangd`。
+3. `go vet`、`golangci-lint`、`dotnet build --warnaserror` 和 `dotnet format --verify-no-changes`。
+4. `go test -race` 和 `dotnet test`。
 
 CI 使用固定版本的 Go 和 .NET SDK，配置最小权限、并发取消、超时和 NuGet 缓存。纯文档改动不触发完整构建。Godot 编辑器导入、场景测试和本地端到端测试作为后续独立验证，避免所有提交都依赖图形工具。
 

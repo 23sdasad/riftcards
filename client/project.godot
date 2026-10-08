@@ -7,7 +7,7 @@ config_version=5
 
 config/name="riftcards"
 run/main_scene="res://scenes/Main.tscn"
-config/features=PackedStringArray("4.4", "C#")
+config/features=PackedStringArray("4.7", "C#")
 
 [display]
 

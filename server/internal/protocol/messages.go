@@ -60,10 +60,10 @@ type QueueStatusData struct {
 }
 
 type MatchCommandRequest struct {
-	MatchID          string              `json:"matchId"`
-	CommandID        string              `json:"commandId"`
-	ExpectedRevision int64               `json:"expectedRevision"`
-	Command          game.PlayerCommand  `json:"command"`
+	MatchID          string             `json:"matchId"`
+	CommandID        string             `json:"commandId"`
+	ExpectedRevision int64              `json:"expectedRevision"`
+	Command          game.PlayerCommand `json:"command"`
 }
 
 type MatchStartedData struct {
@@ -73,10 +73,10 @@ type MatchStartedData struct {
 }
 
 type CommandResultData struct {
-	CommandID string              `json:"commandId"`
-	Accepted  bool                `json:"accepted"`
-	Revision  int64               `json:"revision"`
-	Error     *game.CommandError  `json:"error"`
+	CommandID string             `json:"commandId"`
+	Accepted  bool               `json:"accepted"`
+	Revision  int64              `json:"revision"`
+	Error     *game.CommandError `json:"error"`
 }
 
 type MatchEventsData struct {

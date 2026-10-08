@@ -57,6 +57,7 @@
 | AI 事实来源 | `ai-docs/` | 长期规则、协议、架构、规范和 task |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
 | 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/` | Godot 工程、Core/Godot 分层和纯 .NET 测试 |
+| LLVM 工具链 | `tools/llvm/`、`.clang-format`、`.clang-tidy` | 固定编译器版本、Windows `clang-cl` 入口和检查规则 |
 | CI | `.github/workflows/ci.yml` | Windows、macOS、Linux 直接执行同一门禁 |
 
 生成或机器相关目录不得作为源码事实来源，也不得提交：
