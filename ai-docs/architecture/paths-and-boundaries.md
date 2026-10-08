@@ -7,8 +7,9 @@
 当前实现：
 
 - `server/internal/platform/pathutil` 提供与运行主机无关的 Windows、macOS、Linux 路径解析、规范化、拼接、比较和词法 confinement。
+- `server/internal/platform/proc` 是代码层的进程适配器：用 `pathutil` 解析可执行文件，按参数数组启动子进程，并负责工作目录、环境、标准输入输出、退出状态、取消、超时和进程树终止。它只服务工具与端到端测试。
 - 仓库命令入口是根目录 `Taskfile.yml`；全部依赖的版本声明也集中在该文件的 `vars:`。
-- 依赖由独立 Go 模块 `tools/toolchain` 引导到仓库内 `.tools/`；业务代码仍然不引入 shell 进程层。`tools/toolchain` 不依赖 `server` 模块。
+- 依赖由独立 Go 模块 `tools/toolchain` 引导到仓库内 `.tools/`；`tools/toolchain` 不依赖 `server` 模块，也不使用 `proc`。
 
 目标边界：
 
@@ -59,6 +60,7 @@
 | 依赖引导 | `tools/toolchain/`、`.tools/` | Go 引导器（独立模块）与它安装的本地依赖（`.tools/` 由 git 忽略） |
 | AI 事实来源 | `ai-docs/` | 长期规则、协议、架构、规范和 task |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
+| 平台适配 | `server/internal/platform/pathutil/`、`server/internal/platform/proc/` | 跨平台路径语义与进程启动/终止；只有适配层可以使用它们 |
 | 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/`、`client/**/packages.lock.json` | Godot 工程、Core/Godot 分层、纯 .NET 测试和 NuGet 锁定 |
 | LLVM 工具链 | `tools/llvm/`、`.clang-format`、`.clang-tidy` | 固定编译器版本、Windows `clang-cl` 入口和检查规则 |
 | CI | `.github/workflows/ci.yml` | Windows、macOS、Linux 执行同一 `task ci` 门禁 |
@@ -113,6 +115,7 @@ Godot -> Core
 cmd -> transport/ws -> match -> protocol -> game
 cmd -> match
 server 各适配层 -> pathutil
+server 各适配层 -> proc -> pathutil
 pathutil -> Go 标准库
 tools/toolchain -> Taskfile.yml（只读取依赖声明）
 ```
@@ -123,6 +126,7 @@ tools/toolchain -> Taskfile.yml（只读取依赖声明）
 | --- | --- |
 | 客户端计算最终结算或直接修改权威状态 | C# 中查找游戏规则分支、状态变更 API 或把本地预测当提交结果 |
 | `game` 依赖网络、子进程、环境或 Godot 概念 | 检查 `server/internal/game` 的 import 和参数类型 |
+| 规则或传输层依赖 `platform/proc` 或 `os/exec` | 检查 `server/internal/{game,match,protocol}` 的 import |
 | 业务代码手工拼接 `/`、`\` 或平台可执行后缀 | 扫描 `filepath.Join`、`Path.Combine`、`DirectorySeparatorChar`、手写 `.exe` 和字符串分隔符 |
 | 传输 DTO 层启动 I/O、房间或进程 | 检查 `server/internal/protocol` 是否导入 `net/http`、WebSocket、`os/exec` 或 `match` |
 | 向所有玩家广播未投影的完整事件或隐藏区域 | 检查广播路径与房间测试，确认对手手牌、牌库和实例 ID 不泄露 |
@@ -131,7 +135,7 @@ tools/toolchain -> Taskfile.yml（只读取依赖声明）
 
 ```powershell
 task test
-go -C server test ./internal/platform/pathutil
+go -C server test ./internal/platform/pathutil ./internal/platform/proc
 git diff --check
 ```
 

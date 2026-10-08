@@ -63,6 +63,8 @@ env:
   LLVM_MAJOR: '{{.TC_LLVM_MAJOR}}'
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
   DOTNET_NOLOGO: "true"
+  # race 测试需要 cgo；引导器保证 Windows 上有 clang-cl，Unix 上有 clang。
+  CGO_ENABLED: "1"
 
 tasks:
   default:

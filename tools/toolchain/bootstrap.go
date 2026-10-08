@@ -55,6 +55,7 @@ func runBootstrap(opts bootstrapOptions) error {
 	if err := os.MkdirAll(cfg.CacheDir, 0o755); err != nil {
 		return err
 	}
+	cleanPartialDownloads(cfg.CacheDir)
 
 	fmt.Printf("引导 riftcards 依赖：%s/%s\n", runtime.GOOS, runtime.GOARCH)
 	fmt.Printf("安装目录：%s\n\n", relToRepo(cfg.ToolsDir))
@@ -88,6 +89,19 @@ func runBootstrap(opts bootstrapOptions) error {
 	}
 	reportPaths(paths, envPath)
 	return nil
+}
+
+// cleanPartialDownloads 清掉上次被中断的 *.part，避免缓存目录里留下半成品。
+func cleanPartialDownloads(cacheDir string) {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".part") {
+			_ = os.Remove(filepath.Join(cacheDir, entry.Name()))
+		}
+	}
 }
 
 func installGoTools(cfg *Config, force bool) error {

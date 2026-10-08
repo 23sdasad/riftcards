@@ -37,6 +37,7 @@
 - `server/internal/transport/ws`：WebSocket 读写，不包含规则。
 - `server/internal/protocol`：传输 DTO 和错误码。
 - `server/internal/platform/pathutil`：跨平台路径语义，不依赖宿主系统或上层模块。
+- `server/internal/platform/proc`：进程启动、取消、超时与进程树终止，只供工具和端到端测试使用；`game`、`match`、`protocol` 不得依赖。
 - `client/src/Core`：纯 .NET 协议、会话和回放逻辑，不依赖 Godot。
 - `client/src/Godot`：Godot API 适配，不包含规则判断。
 

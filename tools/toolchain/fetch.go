@@ -26,7 +26,7 @@ func fetchArchive(c component, cacheDir string) (string, error) {
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return "", err
 	}
-	name := filepath.Base(strings.SplitN(c.URL, "?", 2)[0])
+	name := cacheName(c.URL)
 	dest := filepath.Join(cacheDir, name)
 
 	if _, err := os.Stat(dest); err == nil {
@@ -53,6 +53,17 @@ func fetchArchive(c component, cacheDir string) (string, error) {
 		return "", err
 	}
 	return dest, nil
+}
+
+// cacheName 由 URL 得到缓存文件名，并还原百分号转义，避免出现 clang%2Bllvm 这类名字。
+func cacheName(rawURL string) string {
+	trimmed := strings.SplitN(rawURL, "?", 2)[0]
+	base := filepath.Base(trimmed)
+	decoded, err := url.PathUnescape(base)
+	if err != nil {
+		return base
+	}
+	return decoded
 }
 
 func download(url, dest string) error {

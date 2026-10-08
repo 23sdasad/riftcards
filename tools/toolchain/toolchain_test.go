@@ -102,6 +102,18 @@ func TestParseAndCompareVersions(t *testing.T) {
 	}
 }
 
+func TestCacheNameDecodesEscapes(t *testing.T) {
+	cases := map[string]string{
+		"https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.3/clang%2Bllvm-23.1.3-x86_64-pc-windows-msvc.tar.xz": "clang+llvm-23.1.3-x86_64-pc-windows-msvc.tar.xz",
+		"https://example.invalid/dotnet-sdk-8.0.425-win-x64.zip?token=abc":                                                        "dotnet-sdk-8.0.425-win-x64.zip",
+	}
+	for raw, want := range cases {
+		if got := cacheName(raw); got != want {
+			t.Fatalf("cacheName(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
 func TestVersionLinePrefersToolLine(t *testing.T) {
 	output := "Go: go1.27.0\nScanner: govulncheck@v1.1.4\nSee https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck for details.\n"
 	line := versionLine("govulncheck", output)

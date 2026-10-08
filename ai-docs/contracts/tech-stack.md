@@ -48,6 +48,8 @@ server/
   internal/game/            规则、状态、事件、视图裁剪
   internal/match/           队列、房间、串行结算、广播
   internal/transport/ws/    WebSocket 适配
+  internal/platform/pathutil/  跨平台路径语义
+  internal/platform/proc/      进程启动、取消与超时（工具与端到端测试使用）
 ```
 
 依赖方向：
