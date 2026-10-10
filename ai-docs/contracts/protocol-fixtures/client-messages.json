@@ -1,0 +1,89 @@
+{
+  "version": "0.1",
+  "messages": [
+    {
+      "name": "hello",
+      "message": {
+        "type": "hello",
+        "requestId": "req-hello",
+        "data": {
+          "protocolVersion": "0.1",
+          "clientVersion": "0.1.0",
+          "displayName": "Player One"
+        }
+      }
+    },
+    {
+      "name": "queue.join",
+      "message": {
+        "type": "queue.join",
+        "requestId": "req-queue",
+        "data": {}
+      }
+    },
+    {
+      "name": "queue.leave",
+      "message": {
+        "type": "queue.leave",
+        "requestId": "req-leave",
+        "data": {}
+      }
+    },
+    {
+      "name": "match.command.play_card",
+      "message": {
+        "type": "match.command",
+        "requestId": "req-command",
+        "data": {
+          "matchId": "m_9a2f",
+          "commandId": "cmd-001",
+          "expectedRevision": 0,
+          "command": {
+            "type": "play_card",
+            "cardInstanceId": "p0-c0"
+          }
+        }
+      }
+    },
+    {
+      "name": "match.command.attack",
+      "message": {
+        "type": "match.command",
+        "requestId": "req-command",
+        "data": {
+          "matchId": "m_9a2f",
+          "commandId": "cmd-002",
+          "expectedRevision": 1,
+          "command": {
+            "type": "attack",
+            "cardInstanceId": "p0-c0",
+            "targetId": "hero-1"
+          }
+        }
+      }
+    },
+    {
+      "name": "match.command.end_turn",
+      "message": {
+        "type": "match.command",
+        "requestId": "req-command",
+        "data": {
+          "matchId": "m_9a2f",
+          "commandId": "cmd-003",
+          "expectedRevision": 1,
+          "command": {
+            "type": "end_turn"
+          }
+        }
+      }
+    },
+    {
+      "name": "ping",
+      "message": {
+        "type": "ping",
+        "requestId": "req-ping",
+        "data": {}
+      }
+    }
+  ]
+}

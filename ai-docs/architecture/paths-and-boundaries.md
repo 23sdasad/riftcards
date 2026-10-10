@@ -59,6 +59,7 @@
 | 命令入口 | `Taskfile.yml`、`global.json` | 统一 `task` 命令入口、依赖声明与 .NET SDK 锁定 |
 | 依赖引导 | `tools/toolchain/`、`.tools/` | Go 引导器（独立模块）与它安装的本地依赖（`.tools/` 由 git 忽略） |
 | AI 事实来源 | `ai-docs/` | 长期规则、协议、架构、规范和 task |
+| 协议固定样例 | `ai-docs/contracts/protocol-fixtures/` | Go 与 C# 测试共用的可执行样例；由测试用 `pathutil` 定位，不依赖工作目录 |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
 | 平台适配 | `server/internal/platform/pathutil/`、`server/internal/platform/proc/` | 跨平台路径语义与进程启动/终止；只有适配层可以使用它们 |
 | 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/`、`client/**/packages.lock.json` | Godot 工程、Core/Godot 分层、纯 .NET 测试和 NuGet 锁定 |

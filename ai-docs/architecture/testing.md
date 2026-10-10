@@ -36,6 +36,15 @@
 - 同一事件的 `seq` 连续且单调递增。
 - 客户端能解析所有服务端示例消息，并把响应关联回原始请求。
 
+## 固定样例
+
+`ai-docs/contracts/protocol-fixtures/` 是两端共用的协议样例目录：
+
+- Go 侧由 `server/internal/testfixtures` 通过 `pathutil` 定位并读取（不依赖当前工作目录），断言在 `server/internal/protocol/fixtures_test.go`。
+- C# 侧从测试程序集位置向上查找同一目录，断言在 `ProtocolFixtureTests.cs`。
+- 两端对同一份样例断言相同字段，并各自验证“解析 → 再编码 → 再解析”等价。
+- 规则侧的一致性由 `server/internal/game/catalog_test.go` 保证：卡牌定义与起始牌组逐字段对照 `product/game-rules.md`。
+
 ## 命令
 
 依赖由 Go 引导器装到 `.tools/`，门禁命令从仓库根目录 `Taskfile.yml` 进入，Windows、macOS、Linux 共用同一份定义：

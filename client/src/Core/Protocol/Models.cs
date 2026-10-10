@@ -150,6 +150,12 @@ public sealed class ProtocolError
     public string Message { get; init; } = string.Empty;
 }
 
+public sealed class PongData
+{
+    [JsonPropertyName("serverTime")]
+    public string ServerTime { get; init; } = string.Empty;
+}
+
 public sealed class MatchView
 {
     [JsonPropertyName("matchId")]

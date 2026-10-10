@@ -333,7 +333,6 @@
 - `expectedRevision` 不匹配返回 `stale_revision`，不自动重放客户端猜测的指令。
 
 ## 5. 错误码与产生位置
-
 每条错误码只有一个产生位置，客户端按 `code` 决策，`message` 只面向开发者。响应一律回填原始 `requestId`。
 
 | 错误码 | 产生位置 | 载体 |
@@ -355,3 +354,18 @@
 传输与会话级错误用 `error` 消息；指令级拒绝用 `match.command_result` 的 `error` 字段。两者的拒绝路径都不得改变权威状态、推进 `revision` 或 `seq`，也不得广播领域事件。
 
 代码中的唯一来源：传输与会话级错误码是 `server/internal/protocol` 的 `Code*` 常量，引擎级错误码是 `server/internal/game` 的 `Code*` 常量。
+
+## 6. 固定样例
+
+`protocol-fixtures/` 存放两端测试共用的可执行样例：
+
+- `client-messages.json`：客户端消息（`hello`、`queue.*`、`match.command` 的三种指令、`ping`）。
+- `server-messages.json`：服务端消息（`welcome`、`queue.status`、`match.started`、`match.command_result` 的接受与拒绝、`match.events`、`error`、`pong`）。
+
+Go 测试（`server/internal/protocol/fixtures_test.go`）与 C# 测试（`client/tests/.../ProtocolFixtureTests.cs`）读取同一组文件，断言解析出的 DTO 字段一致，并验证"解析 → 再编码 → 再解析"等价。
+
+维护规则：
+
+- 新增或修改消息类型时，同一 commit 更新 DTO、本文档、样例和两端测试。
+- 样例中的 `requestId` 必须符合第 1 节：响应带、广播不带。
+- 样例是契约测试的输入，不是运行时可配置内容；不得为通过测试而放宽 DTO 校验。

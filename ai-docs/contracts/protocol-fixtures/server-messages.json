@@ -1,0 +1,226 @@
+{
+  "version": "0.1",
+  "messages": [
+    {
+      "name": "welcome",
+      "message": {
+        "type": "welcome",
+        "requestId": "req-hello",
+        "data": {
+          "connectionId": "c_4a91",
+          "playerId": "p_01f2",
+          "displayName": "Player One",
+          "serverVersion": "0.1.0",
+          "protocolVersion": "0.1"
+        }
+      }
+    },
+    {
+      "name": "queue.status.waiting",
+      "message": {
+        "type": "queue.status",
+        "requestId": "req-queue",
+        "data": {
+          "state": "waiting",
+          "position": 1
+        }
+      }
+    },
+    {
+      "name": "queue.status.left",
+      "message": {
+        "type": "queue.status",
+        "requestId": "req-leave",
+        "data": {
+          "state": "left"
+        }
+      }
+    },
+    {
+      "name": "match.started",
+      "message": {
+        "type": "match.started",
+        "data": {
+          "matchId": "m_9a2f",
+          "seat": 0,
+          "state": {
+            "matchId": "m_9a2f",
+            "revision": 0,
+            "lastEventSeq": 0,
+            "turn": 1,
+            "activeSeat": 0,
+            "status": "active",
+            "winnerSeat": null,
+            "youSeat": 0,
+            "players": [
+              {
+                "seat": 0,
+                "heroId": "hero-0",
+                "hp": 30,
+                "energy": 1,
+                "turnNumber": 1,
+                "deckCount": 26,
+                "handCount": 4,
+                "hand": [
+                  {
+                    "instanceId": "p0-c0",
+                    "cardId": "ember_squire",
+                    "name": "余烬侍从",
+                    "cost": 1,
+                    "kind": "unit"
+                  }
+                ],
+                "board": []
+              },
+              {
+                "seat": 1,
+                "heroId": "hero-1",
+                "hp": 30,
+                "energy": 0,
+                "turnNumber": 0,
+                "deckCount": 26,
+                "handCount": 4,
+                "hand": [],
+                "board": []
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "match.command_result.accepted",
+      "message": {
+        "type": "match.command_result",
+        "requestId": "req-command",
+        "data": {
+          "commandId": "cmd-001",
+          "accepted": true,
+          "revision": 1,
+          "error": null
+        }
+      }
+    },
+    {
+      "name": "match.command_result.rejected",
+      "message": {
+        "type": "match.command_result",
+        "requestId": "req-command",
+        "data": {
+          "commandId": "cmd-002",
+          "accepted": false,
+          "revision": 4,
+          "error": {
+            "code": "insufficient_energy",
+            "message": "card costs 2 energy, 1 available"
+          }
+        }
+      }
+    },
+    {
+      "name": "match.events",
+      "message": {
+        "type": "match.events",
+        "data": {
+          "matchId": "m_9a2f",
+          "baseRevision": 0,
+          "revision": 1,
+          "lastEventSeq": 2,
+          "events": [
+            {
+              "seq": 1,
+              "revision": 1,
+              "type": "card_played",
+              "actorSeat": 0,
+              "visibility": "public",
+              "data": {
+                "cardInstanceId": "p0-c0",
+                "cardId": "ember_squire"
+              }
+            },
+            {
+              "seq": 2,
+              "revision": 1,
+              "type": "unit_summoned",
+              "actorSeat": 0,
+              "visibility": "public",
+              "data": {
+                "instanceId": "p0-c0",
+                "cardId": "ember_squire",
+                "attack": 2,
+                "health": 1,
+                "guard": false
+              }
+            }
+          ],
+          "state": {
+            "matchId": "m_9a2f",
+            "revision": 1,
+            "lastEventSeq": 2,
+            "turn": 1,
+            "activeSeat": 0,
+            "status": "active",
+            "winnerSeat": null,
+            "youSeat": 0,
+            "players": [
+              {
+                "seat": 0,
+                "heroId": "hero-0",
+                "hp": 30,
+                "energy": 0,
+                "turnNumber": 1,
+                "deckCount": 26,
+                "handCount": 3,
+                "hand": [],
+                "board": [
+                  {
+                    "instanceId": "p0-c0",
+                    "cardId": "ember_squire",
+                    "name": "余烬侍从",
+                    "attack": 2,
+                    "health": 1,
+                    "maxHealth": 1,
+                    "guard": false,
+                    "attacksRemaining": 0
+                  }
+                ]
+              },
+              {
+                "seat": 1,
+                "heroId": "hero-1",
+                "hp": 30,
+                "energy": 0,
+                "turnNumber": 0,
+                "deckCount": 26,
+                "handCount": 4,
+                "hand": [],
+                "board": []
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "error",
+      "message": {
+        "type": "error",
+        "requestId": "req-command",
+        "data": {
+          "code": "invalid_message",
+          "message": "missing commandId"
+        }
+      }
+    },
+    {
+      "name": "pong",
+      "message": {
+        "type": "pong",
+        "requestId": "req-ping",
+        "data": {
+          "serverTime": "2026-10-08T12:00:00Z"
+        }
+      }
+    }
+  ]
+}

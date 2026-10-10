@@ -1,6 +1,6 @@
 # 007 — 规则与协议验证基线
 
-- 状态：planned
+- 状态：in-progress
 - 依赖：006
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -45,10 +45,12 @@
 
 ## 预计改动
 
-- 修改：`server/internal/game/*_test.go`、`server/internal/match/*_test.go`、`server/internal/protocol/*_test.go`。
-- 修改或新增：客户端协议与固定样例测试。
-- 新增：共享协议 fixture 目录。
-- 条件修改：协议和规则文档中的测试说明。
+- 新增：`ai-docs/contracts/protocol-fixtures/{client-messages.json,server-messages.json}`（两端共用的固定样例）。
+- 新增：`server/internal/testfixtures/fixtures.go`（按 003 路径约束定位并读取样例，只供测试导入）。
+- 新增：`server/internal/game/{catalog_test.go,cards_test.go,events_test.go,rejections_test.go}`、`server/internal/protocol/fixtures_test.go`。
+- 新增：`client/tests/.../ProtocolFixtureTests.cs`。
+- 修改：`client/src/Core/Protocol/Models.cs`（补 `PongData`，此前协议里有 `pong` 而 C# 缺 DTO）、`client/src/Core/Session/GameSession.cs`（解析 `pong` 载荷）。
+- 修改：`ai-docs/contracts/protocol.md`（新增第 6 节固定样例）、`ai-docs/contracts/README.md`、`ai-docs/architecture/{testing,paths-and-boundaries}.md`。
 
 ## 清理与兼容例外
 
@@ -56,20 +58,20 @@
 
 ## 验收标准
 
-- [ ] 8 张 MVP 卡牌的关键成功与失败路径均有测试。
-- [ ] 所有当前事件类型至少有一个顺序、可见性或载荷断言。
-- [ ] 拒绝指令不改变状态、`revision` 和 `seq`。
-- [ ] Go 与 C# 能解析同一组固定样例并得到等价 DTO。
-- [ ] 测试在 Windows、macOS、Linux 上通过，或明确记录无法执行的平台。
+- [x] 8 张 MVP 卡牌的关键成功与失败路径均有测试（目录逐字段对照规则、6 张单位的召唤数值与守卫标记、8 张牌的费用不足、法术目标规则与治疗上限、场地已满、当回合不能攻击、每回合一次攻击）。
+- [x] 所有当前事件类型至少有一个顺序、可见性或载荷断言（`turn_started`/`turn_ended`/`card_drawn`/`card_burned`/`card_played`/`unit_summoned`/`attack_resolved`/`damage_dealt`/`healed`/`unit_died`/`fatigue_damage`/`match_ended`）。
+- [x] 拒绝指令不改变状态、`revision` 和 `seq`（按错误码逐项断言，并比较投影快照）。
+- [x] Go 与 C# 能解析同一组固定样例并得到等价 DTO（同一目录、两端断言相同字段、各自验证往返等价）。
+- [ ] 测试在 Windows、macOS、Linux 上通过，或明确记录无法执行的平台：本机 Windows 已通过，三平台待 CI 确认。
 
 ## 验证计划与结果
 
 | 日期 | 环境 / 命令 | 预期 | 实际结果 |
 | --- | --- | --- | --- |
-| — | `go test -race ./...` | Go 规则/房间/协议测试通过 | 未执行 |
-| — | `dotnet test` | C# 协议/会话测试通过 | 未执行 |
-| — | Go 与 C# 测试命令 | 全量测试通过 | 未执行 |
-| — | Windows / macOS / Linux CI 或本机 | 平台一致 | 未执行 |
+| 2026-10-08 | Windows / `go test -race ./internal/...` | Go 规则/房间/协议测试通过 | 通过：新增 catalog/cards/events/rejections 与协议样例测试；`seq` 连续、事件版本对账、投影不泄露对手手牌与牌库 |
+| 2026-10-08 | Windows / `dotnet test` | C# 协议/会话测试通过 | 通过：14 个测试（原 11 个），新增共享样例解析与生成方向比对 |
+| 2026-10-08 | Windows / `task ci` | 全量测试通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、全部 Go 包 `-race` 通过、`dotnet test` 14 通过 |
+| — | Windows / macOS / Linux CI | 平台一致 | 未执行 |
 
 ## 风险与回退
 
@@ -78,7 +80,14 @@
 ## 决策与工作记录
 
 - 2026-10-08：创建任务。将规则与协议验证放在指令路径稳定之后、UI 之前。
+- 2026-10-08：共享样例位置定为 `ai-docs/contracts/protocol-fixtures/`（属 003 的“AI 事实来源”，并已登记进路径表）。Go 侧新增 `server/internal/testfixtures`，用 `runtime.Caller` 定位仓库根后再用 `pathutil` 拼接路径，因此不依赖当前工作目录、也不手写分隔符；C# 侧从测试程序集位置向上查找同一目录。
+- 2026-10-08：卡牌与牌组一致性用测试直接对照规则文档（8 张定义逐字段 + 30 张配比），把“规则文档 ↔ 实现”的漂移变成可执行断言。
+- 2026-10-08：补齐 C# 侧缺失的 `PongData`：协议里已定义 `pong`，C# 没有对应 DTO，样例测试因此暴露该缺口。同时会话解析 `serverTime`。
 
 ## 完成摘要
 
-未完成。
+建立了 Phase 1 的规则与协议验证基线。规则侧：卡牌目录与 30 张起始牌组逐字段对照规则文档；6 张单位牌的召唤数值、守卫标记与当回合不能攻击；8 张牌的费用不足路径；法术目标规则与治疗上限；场地已满、每回合一次攻击；事件侧覆盖全部 12 种事件类型，并断言 `seq` 从 1 连续递增、同一次结算的事件同版本、抽牌与烧牌只对本人可见、投影不泄露对手手牌内容与牌库；拒绝路径按错误码逐项断言状态、`revision`、`seq` 与投影不变。
+
+协议侧：新增 `ai-docs/contracts/protocol-fixtures/` 共享样例（客户端 7 条、服务端 10 条），Go 与 C# 读取同一目录并断言相同字段，各自验证“解析 → 再编码 → 再解析”等价；Go 侧还验证按 DTO 生成的指令与样例逐字段一致。过程中补齐了 C# 缺失的 `PongData` DTO。
+
+测试规模：Go 新增 4 个测试文件 + 1 个样例加载包 + 协议样例测试；C# 由 11 个增加到 14 个。本机 `task ci` 通过（golangci-lint 0 issues、C# 构建 0 警告、全部 Go 包 `-race`、`dotnet test` 14 通过）。三平台 CI 待推送确认。

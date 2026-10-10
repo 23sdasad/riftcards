@@ -196,7 +196,8 @@ public sealed class GameSession
                 break;
 
             case ProtocolNames.Pong:
-                Status = "pong";
+                var pong = envelope.Data.Deserialize<PongData>(ProtocolJson.Options);
+                Status = pong is null ? "pong" : $"pong {pong.ServerTime}";
                 break;
 
             default:
