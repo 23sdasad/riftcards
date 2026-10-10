@@ -1,6 +1,6 @@
 # 009 — 事件队列与表现层解耦
 
-- 状态：in-progress
+- 状态：done
 - 依赖：008
 - 优先级：P1
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -71,6 +71,7 @@
 | 2026-10-08 | Windows / `dotnet build client/Riftcards.Client.csproj --warnaserror` | Godot 适配编译通过 | 通过：0 警告 0 错误 |
 | 2026-10-08 | Windows / Godot 无界面双客户端冒烟 | 顺序和快照一致 | 通过：同一对局座位 1/0；客户端 A 观察到 `#1 turn_ended, #2 turn_started, #3 card_drawn, #4 turn_ended, #5 turn_started`，客户端 B 观察到 `#1, #2, #4, #5, #6 card_drawn, #7 match_ended`；各自缺失的序号正是对方看不到的座位私有事件，`seq` 单调递增 |
 | 2026-10-08 | Windows / `task ci` | 全量门禁通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、Go 全部包、`dotnet test` 49 通过 |
+| 2026-10-08 | GitHub Actions run [38061995018](https://github.com/23sdasad/riftcards/actions/runs/38061995018)（`1c2956d`） | 三平台通过 | 通过：ubuntu 2m8s、windows 4m56s、macos 3m40s |
 
 ## 风险与回退
 
@@ -91,4 +92,4 @@
 
 `GameSession` 现在把三条路径分开：协议事件留档（`Events`）、表现队列（`Queue`）、快照立即成为权威状态（`View`）；`match.started` 会重置队列与游标，避免跨对局串事件。删除了 Godot 侧直接遍历协议事件的日志逻辑。未知事件类型只计数并原样投递，由表现层标注忽略，不改变任何规则状态。
 
-验证：Core 测试由 27 个增加到 49 个；客户端构建 0 警告；Godot 无界面双客户端冒烟观察到事件严格按 `seq` 递增消费、座位私有事件按投影过滤；`task ci` 通过。三平台 CI 待推送确认。
+验证：Core 测试由 27 个增加到 49 个；客户端构建 0 警告；Godot 无界面双客户端冒烟观察到事件严格按 `seq` 递增消费、座位私有事件按投影过滤；`task ci` 通过；三平台 CI 通过（run 38061995018）。
