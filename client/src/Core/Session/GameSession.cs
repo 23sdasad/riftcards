@@ -210,6 +210,11 @@ public sealed class GameSession
 
     private string Send(string type, object data, string? commandId = null)
     {
+        // 新请求发出后，上一次的响应状态不再代表当前状态，避免界面显示过期错误。
+        LastError = null;
+        LastErrorRequestId = null;
+        LastCommandOutcome = null;
+
         var requestId = NextRequestId("req");
         var envelope = new ClientEnvelope
         {

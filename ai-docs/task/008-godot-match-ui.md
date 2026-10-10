@@ -1,6 +1,6 @@
 # 008 — Godot 对局界面纵切
 
-- 状态：planned
+- 状态：in-progress
 - 依赖：007
 - 优先级：P1
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -45,10 +45,11 @@
 
 ## 预计改动
 
-- 修改：`client/src/Main.cs`、`client/scenes/Main.tscn`。
-- 新增：`client/src/Godot/Match/` 或等价组件目录、对局场景与视图模型。
-- 可能修改：`client/src/Core/Session` 中只读查询接口。
-- 修改：客户端运行说明。
+- 新增：`client/src/Core/Session/MatchBoard.cs`（纯 C# 视图模型：投影 → 绑定状态 + 意图收集）。
+- 新增：`client/src/Godot/Match/{MatchBoardView.cs,CardButton.cs,UnitButton.cs,HeroPanel.cs}`（对局面板与可复用组件）。
+- 修改：`client/src/Main.cs`（改为应用壳：连接设置、状态、事件日志）、`client/src/Core/Protocol/ProtocolNames.cs`（卡牌类型常量）、`client/src/Core/Session/GameSession.cs`（新请求发出时清空上一次响应状态）。
+- 新增测试：`client/tests/.../MatchBoardTests.cs`。
+- 修改：`README.md`（客户端操作说明与无界面冒烟参数）、`ai-docs/architecture/testing.md`（新增视图模型测试层）。
 
 ## 清理与兼容例外
 
@@ -56,19 +57,22 @@
 
 ## 验收标准
 
-- [ ] 玩家能通过 UI 完成出牌、选目标、攻击、结束回合和认输。
-- [ ] 非法操作由服务端拒绝，UI 只展示错误并回到有效快照。
-- [ ] 对手手牌和牌库内容不进入 UI 或客户端缓存。
-- [ ] 窗口缩放后核心操作仍可见，不因动态文本重叠。
-- [ ] Godot 与纯 .NET 构建、测试通过，并完成本地冒烟记录。
+- [x] 玩家能通过 UI 完成出牌、选目标、攻击、结束回合和认输：五种交互的意图生成都有视图模型测试，UI 调用链编译通过并在无界面运行中完成匹配。
+- [x] 非法操作由服务端拒绝，UI 只展示错误并回到有效快照（提示行显示错误码；快照校正会清理无效选择）。
+- [x] 对手手牌和牌库内容不进入 UI 或客户端缓存（视图模型只暴露对手手牌数量与牌库数量，有测试）。
+- [ ] 窗口缩放后核心操作仍可见，不因动态文本重叠：已用容器与滚动容器实现，但本机无显示环境，未做人工视觉检查。
+- [x] Godot 与纯 .NET 构建、测试通过，并完成本地冒烟记录（构建 0 警告、Core 27 个测试通过、Godot 无界面导入通过、双客户端无界面冒烟进入同一对局）。
 
 ## 验证计划与结果
 
 | 日期 | 环境 / 命令 | 预期 | 实际结果 |
 | --- | --- | --- | --- |
-| — | `dotnet build client/Riftcards.Client.csproj --warnaserror` | 客户端编译通过 | 未执行 |
-| — | `dotnet test client/tests/Riftcards.Client.Core.Tests/Riftcards.Client.Core.Tests.csproj` | Core 测试通过 | 未执行 |
-| — | Godot 双客户端手工冒烟 | 可完成主要操作 | 未执行 |
+| 2026-10-08 | Windows / `dotnet build client/Riftcards.Client.csproj --warnaserror` | 客户端编译通过 | 通过：0 警告 0 错误 |
+| 2026-10-08 | Windows / `dotnet test client/tests/...` | Core 测试通过 | 通过：27 个测试（原 14 个），新增 13 个视图模型测试 |
+| 2026-10-08 | Windows / Godot 4.7.2 无界面导入 | 工程与脚本加载 | 通过：`--headless --path client --import` 退出码 0，无脚本错误 |
+| 2026-10-08 | Windows / 双客户端无界面冒烟 | 两个客户端进入同一对局 | 通过：真实服务端 + 两个 headless 客户端，均收到 `welcome`，分别进入座位 0/1，状态变为 `match m_d2d6802ffa0d`；stderr 只有强杀进程时的关闭噪音，无脚本错误 |
+| — | Windows / 有显示器的人工点击冒烟 | 可完成主要操作 | 未执行：本机无显示环境 |
+| 2026-10-08 | Windows / `task ci` | 全量门禁通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、Go 全部包、`dotnet test` 27 通过 |
 
 ## 风险与回退
 
@@ -77,7 +81,13 @@
 ## 决策与工作记录
 
 - 2026-10-08：创建任务。UI 排在路径、shell、状态机和规则/协议验证之后。
+- 2026-10-08：界面用 C# 代码构建而不是手写复杂 `.tscn`：本机无显示环境，手写场景文件无法可视化校验，代码构建可被编译器和单元测试覆盖。组件拆成 `MatchBoardView`、`CardButton`、`UnitButton`、`HeroPanel`，`Main.cs` 退化为应用壳。
+- 2026-10-08：目标选择边界：客户端只提供“投影里可见的目标集合”，不判断合法性；“法术需要目标”来自投影中的 `kind` 字段（投影事实，不是规则计算）。守卫优先级、费用、伤害与胜负全部由服务端裁决，非法操作以错误码返回并显示在提示行。
+- 2026-10-08：新增开发用 `--server=` 参数用于无显示器冒烟（连接后会话自动发 `hello` 并进入匹配）；`GameSession` 在发出新请求时清空上一次响应状态，避免界面长期显示过期错误。
+- 2026-10-08：本机 Godot 4.7.2 由 `task bootstrap` 安装成功（此前因网络失败），因此补做了无界面导入与双客户端冒烟。
 
 ## 完成摘要
 
-未完成。
+客户端从单文件诊断页拆成应用壳（连接、状态、事件日志）与对局面板，并新增纯 C# 视图模型 `MatchBoard`：把投影转换成绑定状态，管理“选牌 → 选目标”“选攻击者 → 选目标”的交互状态，并在快照校正后清理无效选择。面板展示双方英雄、费用、牌库与手牌数量、场地单位、回合与连接状态，支持出牌、选目标、攻击、结束回合与认输；提示行显示服务端错误码。删除了原来的自动选目标逻辑（按 cardId 猜目标、自动挑守卫），客户端不再做任何规则判断。可复用组件为 `CardButton`、`UnitButton`、`HeroPanel`。
+
+验证：客户端构建 0 警告；Core 测试由 14 个增加到 27 个（新增 13 个视图模型测试）；Godot 4.7.2 无界面导入通过；双客户端无界面冒烟在真实服务端上完成匹配（同一 matchId、座位 0/1），无脚本错误。限制：本机无显示环境，未做人工点击冒烟与视觉检查（窗口缩放后的可读性只在结构上保证：容器 + 滚动容器）。

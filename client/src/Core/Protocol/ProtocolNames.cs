@@ -22,4 +22,7 @@ public static class ProtocolNames
     public const string Attack = "attack";
     public const string EndTurn = "end_turn";
     public const string Surrender = "surrender";
+
+    public const string CardKindUnit = "unit";
+    public const string CardKindSpell = "spell";
 }
