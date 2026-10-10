@@ -8,6 +8,7 @@ public sealed class GameSession
     private readonly IMessageTransport _transport;
     private readonly List<GameEvent> _events = [];
     private readonly Dictionary<string, PendingRequest> _pending = [];
+    private readonly EventQueue _queue = new();
     private int _requestCounter;
     private string _displayName = "Player";
 
@@ -26,6 +27,9 @@ public sealed class GameSession
     public MatchView? View { get; private set; }
 
     public IReadOnlyList<GameEvent> Events => _events;
+
+    /// <summary>按 <c>seq</c> 顺序消费的表现事件队列；由表现层通过 <see cref="EventPump"/> 消费。</summary>
+    public EventQueue Queue => _queue;
 
     public bool IsConnected => _transport.IsOpen;
 
@@ -52,11 +56,13 @@ public sealed class GameSession
         _transport.Connect(url);
     }
 
-    public void Queue()
+    /// <summary>加入两人匹配队列（`queue.join`）。</summary>
+    public void JoinQueue()
     {
         Send(ProtocolNames.QueueJoin, new { });
     }
 
+    /// <summary>离开匹配队列（`queue.leave`）。</summary>
     public void LeaveQueue()
     {
         Send(ProtocolNames.QueueLeave, new { });
@@ -96,7 +102,7 @@ public sealed class GameSession
     {
         Status = "connected";
         Send(ProtocolNames.Hello, new HelloData { DisplayName = _displayName });
-        Queue();
+        JoinQueue();
         Changed?.Invoke();
     }
 
@@ -158,6 +164,9 @@ public sealed class GameSession
                 var started = envelope.Data.Deserialize<MatchStartedData>(ProtocolJson.Options);
                 if (started is not null)
                 {
+                    // 新对局的 seq 从 1 重新开始：清空队列与游标，避免上一局的事件串进来。
+                    _events.Clear();
+                    _queue.Reset();
                     View = started.State;
                     Status = $"match {started.MatchId}, seat {started.Seat}";
                 }
@@ -183,7 +192,9 @@ public sealed class GameSession
                 var events = envelope.Data.Deserialize<MatchEventsData>(ProtocolJson.Options);
                 if (events is not null)
                 {
+                    // 三条路径彼此独立：日志留档、表现队列按 seq 消费、快照立即成为权威状态。
                     _events.AddRange(events.Events);
+                    _queue.Enqueue(events.Events);
                     View = events.State;
                 }
                 break;

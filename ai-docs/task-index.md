@@ -60,8 +60,8 @@ ai-docs/
 | 006 | [指令处理路径与错误边界](task/006-command-path-error-boundaries.md) | 005 | done |
 | 007 | [规则与协议验证基线](task/007-rule-protocol-validation.md) | 006 | done |
 | 008 | [Godot 对局界面纵切](task/008-godot-match-ui.md) | 007 | done |
-| 009 | [事件队列与表现层解耦](task/009-event-queue-presentation.md) | 008 | ready |
-| 010 | [本地端到端验收](task/010-local-end-to-end.md) | 004、007、008、009 | planned |
+| 009 | [事件队列与表现层解耦](task/009-event-queue-presentation.md) | 008 | in-progress |
+| 010 | [本地端到端验收](task/010-local-end-to-end.md) | 004、007、008、009 | ready |
 | 011 | [GitHub Actions CI](task/011-github-actions-ci.md) | 001 | done |
 | 012 | [统一 Taskfile 命令入口与版本锁定](task/012-taskfile-command-entry.md) | 011 | done |
 | 013 | [修复最新工具链下的本地门禁](task/013-toolchain-gate-repair.md) | 003、012 | done |

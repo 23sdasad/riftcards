@@ -133,7 +133,7 @@ public sealed class GameSessionTests
         transport.Open();
         CompleteHandshake(transport);
 
-        session.Queue();
+        session.JoinQueue();
         var requestId = RequestIdOf(transport.Sent[^1]);
         Assert.Equal(1, session.PendingRequests);
 
@@ -158,7 +158,7 @@ public sealed class GameSessionTests
         session.Connect("ws://127.0.0.1:8080/ws", "Tester");
         transport.Open();
 
-        session.Queue();
+        session.JoinQueue();
         var requestId = RequestIdOf(transport.Sent[^1]);
         transport.Receive($$"""
             {
@@ -255,44 +255,5 @@ public sealed class GameSessionTests
     {
         using var document = JsonDocument.Parse(envelope);
         return document.RootElement.GetProperty("data").GetProperty("commandId").GetString() ?? string.Empty;
-    }
-
-    private sealed class FakeTransport : IMessageTransport
-    {
-        public event Action? Connected;
-
-        public event Action<string?>? Disconnected;
-
-        public event Action<string>? TextReceived;
-
-        public bool IsOpen { get; private set; }
-
-        public List<string> Sent { get; } = [];
-
-        public void Connect(string url)
-        {
-        }
-
-        public void SendText(string text)
-        {
-            Sent.Add(text);
-        }
-
-        public void Open()
-        {
-            IsOpen = true;
-            Connected?.Invoke();
-        }
-
-        public void Receive(string text)
-        {
-            TextReceived?.Invoke(text);
-        }
-
-        public void Disconnect(string? reason = null)
-        {
-            IsOpen = false;
-            Disconnected?.Invoke(reason);
-        }
     }
 }

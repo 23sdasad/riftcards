@@ -1,5 +1,5 @@
-using System.Linq;
 using Godot;
+using Riftcards.Client.Core.Protocol;
 using Riftcards.Client.Core.Session;
 using Riftcards.Client.Godot;
 using Riftcards.Client.Godot.Match;
@@ -7,8 +7,8 @@ using Riftcards.Client.Godot.Match;
 namespace Riftcards.Client;
 
 /// <summary>
-/// 应用壳：连接设置、会话状态与事件日志。对局交互全部在 <see cref="MatchBoardView"/>，
-/// 这里不做任何规则或目标选择判断。
+/// 应用壳：连接设置、会话状态与事件面板。对局交互在 <see cref="MatchBoardView"/>，
+/// 事件播放由 <see cref="EventLogPanel"/> 消费队列，这里不做任何规则判断。
 /// </summary>
 public sealed partial class Main : Control
 {
@@ -17,8 +17,10 @@ public sealed partial class Main : Control
     private LineEdit _serverInput = null!;
     private Label _statusLabel = null!;
     private MatchBoardView _boardView = null!;
-    private RichTextLabel _logLabel = null!;
+    private EventLogPanel _eventPanel = null!;
     private string _lastLoggedStatus = string.Empty;
+    private bool _smokeEndTurn;
+    private bool _smokeCommandSent;
 
     public override void _Ready()
     {
@@ -30,6 +32,7 @@ public sealed partial class Main : Control
 
         _session.Changed += Refresh;
         _boardView.Bind(_session);
+        _eventPanel.Bind(_session);
         Refresh();
         TryAutoStart();
     }
@@ -68,7 +71,7 @@ public sealed partial class Main : Control
         serverRow.AddChild(connectButton);
 
         var queueButton = new Button { Text = "进入匹配" };
-        queueButton.Pressed += _session.Queue;
+        queueButton.Pressed += _session.JoinQueue;
         serverRow.AddChild(queueButton);
 
         _statusLabel = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
@@ -85,13 +88,8 @@ public sealed partial class Main : Control
         _boardView = new MatchBoardView { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         scroll.AddChild(_boardView);
 
-        _logLabel = new RichTextLabel
-        {
-            FitContent = false,
-            ScrollActive = true,
-            CustomMinimumSize = new Vector2(0, 160),
-        };
-        root.AddChild(_logLabel);
+        _eventPanel = new EventLogPanel();
+        root.AddChild(_eventPanel);
     }
 
     private void Connect()
@@ -112,7 +110,8 @@ public sealed partial class Main : Control
             return;
         }
         _serverInput.Text = server;
-        GD.Print($"[riftcards] autostart {server}");
+        _smokeEndTurn = ReadUserArg("--smoke-end-turn") is not null;
+        GD.Print($"[riftcards] autostart {server} (smoke-end-turn={_smokeEndTurn})");
         Connect();
     }
 
@@ -136,14 +135,25 @@ public sealed partial class Main : Control
             _lastLoggedStatus = _session.Status;
             GD.Print($"[riftcards] status: {_session.Status}");
         }
-        RefreshLog();
+        SubmitSmokeCommand();
     }
 
-    private void RefreshLog()
+    /// <summary>
+    /// 开发用冒烟动作：`--smoke-end-turn` 时，在自己回合提交一次结束回合，
+    /// 让无界面冒烟也能观察到真实事件顺序。
+    /// </summary>
+    private void SubmitSmokeCommand()
     {
-        var lines = _session.Events
-            .TakeLast(60)
-            .Select(gameEvent => $"#{gameEvent.Seq} {gameEvent.Type} {gameEvent.Data}");
-        _logLabel.Text = string.Join("\n", lines);
+        if (!_smokeEndTurn || _smokeCommandSent)
+        {
+            return;
+        }
+        if (_session.View is not { } view || view.Status != "active" || view.ActiveSeat != view.YouSeat)
+        {
+            return;
+        }
+        _smokeCommandSent = true;
+        GD.Print("[riftcards] smoke: submitting end_turn");
+        _session.SubmitCommand(ProtocolNames.EndTurn);
     }
 }
