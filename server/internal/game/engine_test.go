@@ -2,17 +2,24 @@ package game
 
 import "testing"
 
+// newTestMatch 创建对局并断言初始化成功。
+func newTestMatch(t *testing.T, seed int64) *State {
+	t.Helper()
+	state, err := NewMatch("m_test", seed)
+	if err != nil {
+		t.Fatalf("NewMatch 失败：%v", err)
+	}
+	return state
+}
+
 func TestNewMatchBuildsOpeningState(t *testing.T) {
-	state, events := NewMatch("m_test", 42)
+	state := newTestMatch(t, 42)
 
 	if state.Revision != 0 {
 		t.Fatalf("revision = %d, want 0", state.Revision)
 	}
 	if state.LastEventSeq != 0 {
 		t.Fatalf("last event seq = %d, want 0", state.LastEventSeq)
-	}
-	if len(events) != 0 {
-		t.Fatalf("opening events = %d, want 0", len(events))
 	}
 	if state.Players[0].HP != StartingHeroHP || state.Players[1].HP != StartingHeroHP {
 		t.Fatalf("hero hp = %d/%d, want %d/%d", state.Players[0].HP, state.Players[1].HP, StartingHeroHP, StartingHeroHP)
@@ -31,7 +38,7 @@ func TestNewMatchBuildsOpeningState(t *testing.T) {
 }
 
 func TestRejectsCommandFromInactiveSeat(t *testing.T) {
-	state, _ := NewMatch("m_test", 7)
+	state := newTestMatch(t, 7)
 	inactiveSeat := 1 - state.ActiveSeat
 
 	result := state.ApplyCommand(inactiveSeat, PlayerCommand{Type: CommandEndTurn})
@@ -48,7 +55,7 @@ func TestRejectsCommandFromInactiveSeat(t *testing.T) {
 }
 
 func TestPlayingUnitSpendsEnergyAndSummons(t *testing.T) {
-	state, _ := NewMatch("m_test", 11)
+	state := newTestMatch(t, 11)
 	seat := state.ActiveSeat
 	state.Players[seat].Hand = []CardInstance{{
 		InstanceID: "p-card",
@@ -85,7 +92,7 @@ func TestPlayingUnitSpendsEnergyAndSummons(t *testing.T) {
 }
 
 func TestAttackMustRespectGuard(t *testing.T) {
-	state, _ := NewMatch("m_test", 13)
+	state := newTestMatch(t, 13)
 	seat := state.ActiveSeat
 	opponent := 1 - seat
 	state.Players[seat].Board = []CardInstance{{
@@ -119,7 +126,7 @@ func TestAttackMustRespectGuard(t *testing.T) {
 }
 
 func TestDamageSpellEndsMatch(t *testing.T) {
-	state, _ := NewMatch("m_test", 17)
+	state := newTestMatch(t, 17)
 	seat := state.ActiveSeat
 	opponent := 1 - seat
 	state.Players[seat].Energy = 2
@@ -150,7 +157,7 @@ func TestDamageSpellEndsMatch(t *testing.T) {
 }
 
 func TestWrongPlayerCannotSeeOpponentHand(t *testing.T) {
-	state, _ := NewMatch("m_test", 23)
+	state := newTestMatch(t, 23)
 	view := state.ViewForSeat(0)
 
 	if len(view.Players[0].Hand) != OpeningHandSize {

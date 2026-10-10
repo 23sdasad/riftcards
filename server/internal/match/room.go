@@ -20,7 +20,10 @@ type Room struct {
 }
 
 func NewRoom(id string, seed int64, peers [2]Peer) (*Room, error) {
-	state, _ := game.NewMatch(id, seed)
+	state, err := game.NewMatch(id, seed)
+	if err != nil {
+		return nil, err
+	}
 	return &Room{
 		id:    id,
 		state: state,

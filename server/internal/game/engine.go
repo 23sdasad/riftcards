@@ -17,10 +17,15 @@ func HeroID(seat int) string {
 	return fmt.Sprintf("hero-%d", seat)
 }
 
-func NewMatch(matchID string, seed int64) (*State, []Event) {
+// NewMatch 创建对局并进入第一个回合的行动阶段。
+//
+// 开局发牌不产生事件（emit=false），因此返回时 LastEventSeq 仍为 0、Revision 为 0。
+// 阶段推进经由 beginTurn，与后续回合共用同一条迁移路径。
+func NewMatch(matchID string, seed int64) (*State, error) {
 	state := &State{
 		MatchID:   matchID,
 		Status:    StatusActive,
+		Phase:     PhaseIdle,
 		catalog:   DefaultCatalog(),
 		rng:       rand.New(rand.NewSource(seed)),
 		Players:   [2]PlayerState{},
@@ -40,9 +45,9 @@ func NewMatch(matchID string, seed int64) (*State, []Event) {
 	}
 
 	state.firstSeat = state.rng.Intn(2)
-	state.startTurn(state.firstSeat, true, false)
-	state.pendingEvents = nil
-
+	if err := state.beginTurn(state.firstSeat, false); err != nil {
+		return nil, err
+	}
 	return state, nil
 }
 
@@ -51,8 +56,15 @@ func (s *State) ApplyCommand(seat int, command PlayerCommand) CommandResult {
 		return s.reject("match_finished", "match is already finished")
 	}
 
+	// 认输在任意阶段都允许（规则 10）。
 	if command.Type == CommandSurrender {
 		return s.surrender(seat)
+	}
+
+	// 除认输外，玩家指令只在行动阶段被接受。正常流程下阶段总是 action，
+	// 这里是状态机的前置守卫：拒绝时不修改任何状态。
+	if s.Phase != PhaseAction {
+		return s.reject("invalid_command", fmt.Sprintf("当前回合阶段 %s 不接受玩家指令", s.Phase))
 	}
 
 	if seat != s.ActiveSeat {
@@ -280,58 +292,42 @@ func (s *State) attack(seat int, command PlayerCommand) CommandResult {
 	return s.accepted()
 }
 
+// endTurn 结束当前回合：Action -> Ended，然后由对手开始新回合（Ended -> Start -> Draw -> Action）。
+// 对局在本回合内已经结束时不再开始新回合。
 func (s *State) endTurn(seat int) CommandResult {
 	if seat != s.ActiveSeat {
 		return s.reject("not_your_turn", "it is not your turn")
 	}
-
+	// 修改任何状态之前先校验本次指令所需的全部迁移，保证失败时不留下半个回合。
+	if !canAdvance(s.Phase, PhaseEnded) || !canBeginTurnFrom(PhaseEnded) {
+		return s.reject("invalid_command", fmt.Sprintf("回合阶段 %s 不允许结束回合", s.Phase))
+	}
+	if err := s.advancePhase(PhaseEnded); err != nil {
+		return s.reject("invalid_command", err.Error())
+	}
 	s.Revision++
 	s.emit(seat, VisibilityPublic, "turn_ended", map[string]any{
 		"seat": seat,
 	})
 	s.checkWin()
-	if s.Status == StatusActive {
-		s.startTurn(1-seat, false, true)
+	if s.Status == StatusFinished {
+		return s.accepted()
+	}
+
+	if err := s.beginTurn(1-seat, true); err != nil {
+		return s.reject("invalid_command", err.Error())
 	}
 	return s.accepted()
 }
 
+// surrender 立即结束对局，对手获胜。认输不要求当前是自己的回合。
 func (s *State) surrender(seat int) CommandResult {
 	if seat < 0 || seat > 1 {
 		return s.reject("invalid_command", "invalid seat")
 	}
 	s.Revision++
-	winner := 1 - seat
-	s.WinnerSeat = &winner
-	s.Status = StatusFinished
-	s.emit(seat, VisibilityPublic, "match_ended", map[string]any{
-		"winnerSeat": winner,
-		"reason":     "surrender",
-	})
+	s.finish(1-seat, EndReasonSurrender, seat)
 	return s.accepted()
-}
-
-func (s *State) startTurn(seat int, firstTurn bool, emit bool) {
-	s.ActiveSeat = seat
-	s.Turn++
-	player := &s.Players[seat]
-	player.TurnNumber++
-	player.Energy = min(MaxEnergy, player.TurnNumber)
-	for index := range player.Board {
-		player.Board[index].AttacksRemaining = 1
-	}
-
-	if emit {
-		s.emit(seat, VisibilityPublic, "turn_started", map[string]any{
-			"seat":       seat,
-			"turn":       s.Turn,
-			"turnNumber": player.TurnNumber,
-			"energy":     player.Energy,
-		})
-	}
-	if !firstTurn || seat != s.firstSeat {
-		s.draw(seat, 1, emit)
-	}
 }
 
 func (s *State) draw(seat, count int, emit bool) {
@@ -506,31 +502,6 @@ func (s *State) removeDead(seat int, actorSeat int) {
 		})
 	}
 	player.Board = alive
-}
-
-func (s *State) checkWin() {
-	if s.Status != StatusActive {
-		return
-	}
-	seat0Dead := s.Players[0].HP <= 0
-	seat1Dead := s.Players[1].HP <= 0
-	if !seat0Dead && !seat1Dead {
-		return
-	}
-
-	winner := s.ActiveSeat
-	if seat0Dead && !seat1Dead {
-		winner = 1
-	}
-	if seat1Dead && !seat0Dead {
-		winner = 0
-	}
-	s.Status = StatusFinished
-	s.WinnerSeat = &winner
-	s.emit(s.ActiveSeat, VisibilityPublic, "match_ended", map[string]any{
-		"winnerSeat": winner,
-		"reason":     "hero_defeated",
-	})
 }
 
 func (s *State) cardView(card CardInstance) CardView {

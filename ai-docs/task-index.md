@@ -56,7 +56,7 @@ ai-docs/
 | 002 | [Phase 1 本地完整对局：实施拆分与交互决策](task/002-phase-1-playable-match-plan.md) | 001 | done |
 | 003 | [跨平台 Path 与工程边界基线](task/003-path-boundaries.md) | 002 | done |
 | 004 | [跨平台进程 API](task/004-shell-run-entry.md) | 003 | done |
-| 005 | [对局与回合状态机](task/005-match-turn-state-machine.md) | 003 | ready |
+| 005 | [对局与回合状态机](task/005-match-turn-state-machine.md) | 003 | in-progress |
 | 006 | [指令处理路径与错误边界](task/006-command-path-error-boundaries.md) | 005 | planned |
 | 007 | [规则与协议验证基线](task/007-rule-protocol-validation.md) | 006 | planned |
 | 008 | [Godot 对局界面纵切](task/008-godot-match-ui.md) | 007 | planned |

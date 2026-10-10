@@ -18,11 +18,40 @@ const (
 	CardKindSpell CardKind = "spell"
 )
 
+// MatchStatus 是对局生命周期状态，也是协议可见字段（MatchView.status）。
+// 迁移只有一条：active -> finished，且不可逆。
 type MatchStatus string
 
 const (
 	StatusActive   MatchStatus = "active"
 	StatusFinished MatchStatus = "finished"
+)
+
+// EndReason 是对局结束的原因，取值与 match_ended 事件的 reason 字段一致。
+type EndReason string
+
+const (
+	// EndReasonHeroDefeated 表示一方英雄生命降至 0 或以下。
+	EndReasonHeroDefeated EndReason = "hero_defeated"
+	// EndReasonSurrender 表示一方认输（MVP 中断线也按此处理）。
+	EndReasonSurrender EndReason = "surrender"
+)
+
+// TurnPhase 是回合内部阶段。它属于引擎内部状态：协议不暴露该字段，
+// 客户端用 status 与 activeSeat 判断自己能否行动。
+type TurnPhase string
+
+const (
+	// PhaseIdle 是对局尚未开始第一个回合时的阶段。
+	PhaseIdle TurnPhase = "idle"
+	// PhaseStart 正在执行回合开始：重置费用并恢复己方单位的攻击次数。
+	PhaseStart TurnPhase = "start"
+	// PhaseDraw 正在抽牌，包含爆牌与疲劳伤害。
+	PhaseDraw TurnPhase = "draw"
+	// PhaseAction 可以出牌、攻击、认输或结束回合。
+	PhaseAction TurnPhase = "action"
+	// PhaseEnded 本回合已结束，等待对手回合开始。
+	PhaseEnded TurnPhase = "ended"
 )
 
 type Visibility string
@@ -66,12 +95,16 @@ type PlayerState struct {
 }
 
 type State struct {
-	MatchID       string
-	Revision      int64
-	LastEventSeq  int64
-	Turn          int
-	ActiveSeat    int
-	Status        MatchStatus
+	MatchID      string
+	Revision     int64
+	LastEventSeq int64
+	Turn         int
+	ActiveSeat   int
+	Status       MatchStatus
+	// Phase 是当前回合阶段；对局结束时保持在当时的阶段，生命周期以 Status 为准。
+	Phase TurnPhase
+	// EndReason 只在 Status 为 StatusFinished 时有值。
+	EndReason     EndReason
 	WinnerSeat    *int
 	Players       [2]PlayerState
 	firstSeat     int
