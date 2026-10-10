@@ -1,6 +1,6 @@
 # 007 — 规则与协议验证基线
 
-- 状态：in-progress
+- 状态：done
 - 依赖：006
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -62,7 +62,7 @@
 - [x] 所有当前事件类型至少有一个顺序、可见性或载荷断言（`turn_started`/`turn_ended`/`card_drawn`/`card_burned`/`card_played`/`unit_summoned`/`attack_resolved`/`damage_dealt`/`healed`/`unit_died`/`fatigue_damage`/`match_ended`）。
 - [x] 拒绝指令不改变状态、`revision` 和 `seq`（按错误码逐项断言，并比较投影快照）。
 - [x] Go 与 C# 能解析同一组固定样例并得到等价 DTO（同一目录、两端断言相同字段、各自验证往返等价）。
-- [ ] 测试在 Windows、macOS、Linux 上通过，或明确记录无法执行的平台：本机 Windows 已通过，三平台待 CI 确认。
+- [x] 测试在 Windows、macOS、Linux 上通过（三平台 CI 均执行了新增的规则与样例测试）。
 
 ## 验证计划与结果
 
@@ -71,7 +71,7 @@
 | 2026-10-08 | Windows / `go test -race ./internal/...` | Go 规则/房间/协议测试通过 | 通过：新增 catalog/cards/events/rejections 与协议样例测试；`seq` 连续、事件版本对账、投影不泄露对手手牌与牌库 |
 | 2026-10-08 | Windows / `dotnet test` | C# 协议/会话测试通过 | 通过：14 个测试（原 11 个），新增共享样例解析与生成方向比对 |
 | 2026-10-08 | Windows / `task ci` | 全量测试通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、全部 Go 包 `-race` 通过、`dotnet test` 14 通过 |
-| — | Windows / macOS / Linux CI | 平台一致 | 未执行 |
+| 2026-10-08 | GitHub Actions run [38056724869](https://github.com/23sdasad/riftcards/actions/runs/38056724869)（`0fec5cb`） | 三平台一致 | 通过：ubuntu 1m46s、windows 4m54s、macos 2m26s |
 
 ## 风险与回退
 
@@ -90,4 +90,4 @@
 
 协议侧：新增 `ai-docs/contracts/protocol-fixtures/` 共享样例（客户端 7 条、服务端 10 条），Go 与 C# 读取同一目录并断言相同字段，各自验证“解析 → 再编码 → 再解析”等价；Go 侧还验证按 DTO 生成的指令与样例逐字段一致。过程中补齐了 C# 缺失的 `PongData` DTO。
 
-测试规模：Go 新增 4 个测试文件 + 1 个样例加载包 + 协议样例测试；C# 由 11 个增加到 14 个。本机 `task ci` 通过（golangci-lint 0 issues、C# 构建 0 警告、全部 Go 包 `-race`、`dotnet test` 14 通过）。三平台 CI 待推送确认。
+测试规模：Go 新增 4 个测试文件 + 1 个样例加载包 + 协议样例测试；C# 由 11 个增加到 14 个。本机 `task ci` 通过（golangci-lint 0 issues、C# 构建 0 警告、全部 Go 包 `-race`、`dotnet test` 14 通过）；三平台 CI 通过（run 38056724869：ubuntu 1m46s、windows 4m54s、macos 2m26s），共享样例在三平台都被读取并解析。
