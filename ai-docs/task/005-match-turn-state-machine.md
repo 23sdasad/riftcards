@@ -1,6 +1,6 @@
 # 005 — 对局与回合状态机
 
-- 状态：in-progress
+- 状态：done
 - 依赖：003
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -69,7 +69,7 @@
 | 2026-10-08 | Windows / `go test ./internal/game` | 状态与迁移测试通过 | 通过：新增 9 组状态机测试，连同既有引擎测试全部通过 |
 | 2026-10-08 | Windows / `task ci` | Go/C# 全部通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、`go test -race`（game/pathutil/proc）与 toolchain 单测、`dotnet test` 4 通过 |
 | 2026-10-08 | 同种子同指令序列回放 | 事件序列一致 | 通过：`TestSameCommandSequenceReplaysIdentically` 比较完整事件签名（seq、revision、类型、可见性、载荷） |
-| — | GitHub Actions 三平台 | 通过 | 未执行 |
+| 2026-10-08 | GitHub Actions run [38018236710](https://github.com/23sdasad/riftcards/actions/runs/38018236710)（`ced61d2`） | 三平台通过 | 通过：ubuntu 2m25s、windows 5m28s、macos 3m35s |
 
 ## 风险与回退
 
