@@ -1,6 +1,6 @@
 # 006 — 指令处理路径与错误边界
 
-- 状态：in-progress
+- 状态：done
 - 依赖：005
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -70,7 +70,7 @@
 | 2026-10-08 | Windows / `go test ./internal/...` | 接受与拒绝路径通过 | 通过：新增 protocol（信封严格解码、错误码）、match（接受/过期版本/外部 matchId/终局后/串行/断线/幂等/事件日志）、ws（真实 WebSocket 端到端）测试 |
 | 2026-10-08 | Windows / `dotnet test` | 可解析全部响应并关联请求 | 通过：11 个测试（原 4 个），新增 requestId 关联、拒绝结果、错误响应、广播不影响关联、协议文档示例解析 |
 | 2026-10-08 | Windows / `task ci` | Go/C# 全量通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、`go test -race`（game/match/pathutil/proc/protocol/ws）、toolchain 单测、`dotnet test` 11 通过 |
-| — | GitHub Actions 三平台 | 通过 | 未执行 |
+| 2026-10-08 | GitHub Actions run [38049279453](https://github.com/23sdasad/riftcards/actions/runs/38049279453)（`68f137e`） | 三平台通过 | 通过：ubuntu 2m11s、windows 4m53s、macos 3m10s |
 
 ## 风险与回退
 
@@ -91,4 +91,4 @@
 
 同时修掉两个真实缺陷：会话不在对局中时 manager 静默丢弃指令（现返回 `not_in_match`），以及 `Forfeit` 在信封里发送非契约的 `reason` 字段（现改为类型化 `MatchEventsData`，断线按认输处理）。C# 会话现在记录待处理请求并按 `requestId` 关联响应，暴露 `LastCommandOutcome` 与 `LastError`。
 
-测试：Go 新增 protocol/match/ws 三层测试（含真实 WebSocket 端到端），C# 由 4 个增加到 11 个。本机 `task ci` 通过。三平台 CI 待推送确认。
+测试：Go 新增 protocol/match/ws 三层测试（含真实 WebSocket 端到端），C# 由 4 个增加到 11 个。本机 `task ci` 通过；三平台 CI 通过（run 38049279453：ubuntu 2m11s、windows 4m53s、macos 3m10s）。
