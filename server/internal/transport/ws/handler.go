@@ -58,13 +58,13 @@ func (h *Handler) readLoop(ctx context.Context, peer *peer) {
 			return
 		}
 		if messageType != websocket.MessageText {
-			_ = peer.Send(protocol.NewError("", "invalid_message", "only text frames are supported"))
+			_ = peer.Send(protocol.NewError("", protocol.CodeInvalidMessage, "only text frames are supported"))
 			continue
 		}
 
 		envelope, err := protocol.DecodeClientEnvelope(payload)
 		if err != nil {
-			_ = peer.Send(protocol.NewError("", "invalid_message", err.Error()))
+			_ = peer.Send(protocol.NewError("", protocol.CodeInvalidMessage, err.Error()))
 			continue
 		}
 		h.handleMessage(peer, envelope)
@@ -75,32 +75,32 @@ func (h *Handler) handleMessage(peer *peer, envelope protocol.ClientEnvelope) {
 	switch envelope.Type {
 	case protocol.TypeHello:
 		if peer.helloDone {
-			_ = peer.Send(protocol.NewError(envelope.RequestID, "invalid_message", "hello was already sent"))
+			_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeInvalidMessage, "hello was already sent"))
 			return
 		}
 		data, err := protocol.DecodeData[protocol.HelloData](envelope.Data)
 		if err != nil {
-			_ = peer.Send(protocol.NewError(envelope.RequestID, "invalid_message", err.Error()))
+			_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeInvalidMessage, err.Error()))
 			return
 		}
 		if err := protocol.ValidateHello(data); err != nil {
-			_ = peer.Send(protocol.NewError(envelope.RequestID, "unsupported_protocol", err.Error()))
+			_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeUnsupportedProtocol, err.Error()))
 			return
 		}
 		peer.helloDone = true
-		h.manager.Connect(peer, data)
+		h.manager.Connect(peer, envelope.RequestID, data)
 
 	case protocol.TypeQueueJoin:
 		if !h.requireHello(peer, envelope.RequestID) {
 			return
 		}
-		h.manager.JoinQueue(peer.ID())
+		h.manager.JoinQueue(peer.ID(), envelope.RequestID)
 
 	case protocol.TypeQueueLeave:
 		if !h.requireHello(peer, envelope.RequestID) {
 			return
 		}
-		h.manager.LeaveQueue(peer.ID())
+		h.manager.LeaveQueue(peer.ID(), envelope.RequestID)
 
 	case protocol.TypeMatchCommand:
 		if !h.requireHello(peer, envelope.RequestID) {
@@ -108,20 +108,21 @@ func (h *Handler) handleMessage(peer *peer, envelope protocol.ClientEnvelope) {
 		}
 		data, err := protocol.DecodeData[protocol.MatchCommandRequest](envelope.Data)
 		if err != nil {
-			_ = peer.Send(protocol.NewError(envelope.RequestID, "invalid_message", err.Error()))
+			_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeInvalidMessage, err.Error()))
 			return
 		}
 		if err := protocol.ValidateMatchCommand(data); err != nil {
-			_ = peer.Send(protocol.NewError(envelope.RequestID, "invalid_message", err.Error()))
+			_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeInvalidMessage, err.Error()))
 			return
 		}
-		h.manager.Submit(peer.ID(), data)
+		// requestId 属于信封，作为参数传递，不写入命令载荷。
+		h.manager.Submit(peer.ID(), envelope.RequestID, data)
 
 	case protocol.TypePing:
 		_ = peer.Send(protocol.NewPong(envelope.RequestID))
 
 	default:
-		_ = peer.Send(protocol.NewError(envelope.RequestID, "invalid_message", "unsupported message type"))
+		_ = peer.Send(protocol.NewError(envelope.RequestID, protocol.CodeInvalidMessage, "unsupported message type"))
 	}
 }
 
@@ -129,7 +130,7 @@ func (h *Handler) requireHello(peer *peer, requestID string) bool {
 	if peer.helloDone {
 		return true
 	}
-	_ = peer.Send(protocol.NewError(requestID, "not_authenticated", "send hello first"))
+	_ = peer.Send(protocol.NewError(requestID, protocol.CodeNotAuthenticated, "send hello first"))
 	return false
 }
 

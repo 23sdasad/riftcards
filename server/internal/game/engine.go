@@ -53,7 +53,7 @@ func NewMatch(matchID string, seed int64) (*State, error) {
 
 func (s *State) ApplyCommand(seat int, command PlayerCommand) CommandResult {
 	if s.Status != StatusActive {
-		return s.reject("match_finished", "match is already finished")
+		return s.reject(CodeMatchFinished, "match is already finished")
 	}
 
 	// 认输在任意阶段都允许（规则 10）。
@@ -64,11 +64,11 @@ func (s *State) ApplyCommand(seat int, command PlayerCommand) CommandResult {
 	// 除认输外，玩家指令只在行动阶段被接受。正常流程下阶段总是 action，
 	// 这里是状态机的前置守卫：拒绝时不修改任何状态。
 	if s.Phase != PhaseAction {
-		return s.reject("invalid_command", fmt.Sprintf("当前回合阶段 %s 不接受玩家指令", s.Phase))
+		return s.reject(CodeInvalidCommand, fmt.Sprintf("当前回合阶段 %s 不接受玩家指令", s.Phase))
 	}
 
 	if seat != s.ActiveSeat {
-		return s.reject("not_your_turn", "it is not your turn")
+		return s.reject(CodeNotYourTurn, "it is not your turn")
 	}
 
 	switch command.Type {
@@ -79,7 +79,7 @@ func (s *State) ApplyCommand(seat int, command PlayerCommand) CommandResult {
 	case CommandEndTurn:
 		return s.endTurn(seat)
 	default:
-		return s.reject("invalid_command", "unknown command type")
+		return s.reject(CodeInvalidCommand, "unknown command type")
 	}
 }
 
@@ -152,17 +152,17 @@ func SeatVisibility(seat int) Visibility {
 func (s *State) playCard(seat int, command PlayerCommand) CommandResult {
 	card, handIndex, ok := s.findHandCard(seat, command.CardInstanceID)
 	if !ok {
-		return s.reject("invalid_card", "card is not in your hand")
+		return s.reject(CodeInvalidCard, "card is not in your hand")
 	}
 	definition, ok := s.catalog[card.CardID]
 	if !ok {
-		return s.reject("invalid_card", "card definition is missing")
+		return s.reject(CodeInvalidCard, "card definition is missing")
 	}
 	if s.Players[seat].Energy < definition.Cost {
-		return s.reject("insufficient_energy", fmt.Sprintf("card costs %d energy, %d available", definition.Cost, s.Players[seat].Energy))
+		return s.reject(CodeInsufficientEnergy, fmt.Sprintf("card costs %d energy, %d available", definition.Cost, s.Players[seat].Energy))
 	}
 	if definition.Kind == CardKindUnit && len(s.Players[seat].Board) >= BoardLimit {
-		return s.reject("board_full", "board is full")
+		return s.reject(CodeBoardFull, "board is full")
 	}
 	if err := s.validateSpellTarget(seat, definition, command.TargetID); err != nil {
 		return s.reject(err.Code, err.Message)
@@ -213,11 +213,11 @@ func (s *State) attack(seat int, command PlayerCommand) CommandResult {
 		}
 	}
 	if attackerIndex < 0 {
-		return s.reject("invalid_card", "attacker is not on your board")
+		return s.reject(CodeInvalidCard, "attacker is not on your board")
 	}
 	attacker := &s.Players[seat].Board[attackerIndex]
 	if attacker.AttacksRemaining <= 0 {
-		return s.reject("invalid_target", "unit cannot attack this turn")
+		return s.reject(CodeInvalidTarget, "unit cannot attack this turn")
 	}
 
 	opponentSeat := 1 - seat
@@ -230,7 +230,7 @@ func (s *State) attack(seat int, command PlayerCommand) CommandResult {
 	}
 	attacksHero := command.TargetID == HeroID(opponentSeat)
 	if !attacksHero && defenderIndex < 0 {
-		return s.reject("invalid_target", "target is not a valid enemy")
+		return s.reject(CodeInvalidTarget, "target is not a valid enemy")
 	}
 	if defenderIndex >= 0 {
 		hasGuard := false
@@ -242,7 +242,7 @@ func (s *State) attack(seat int, command PlayerCommand) CommandResult {
 		}
 		defenderDefinition := s.catalog[s.Players[opponentSeat].Board[defenderIndex].CardID]
 		if hasGuard && !defenderDefinition.Guard {
-			return s.reject("invalid_target", "a guard unit must be attacked first")
+			return s.reject(CodeInvalidTarget, "a guard unit must be attacked first")
 		}
 	}
 
@@ -296,14 +296,14 @@ func (s *State) attack(seat int, command PlayerCommand) CommandResult {
 // 对局在本回合内已经结束时不再开始新回合。
 func (s *State) endTurn(seat int) CommandResult {
 	if seat != s.ActiveSeat {
-		return s.reject("not_your_turn", "it is not your turn")
+		return s.reject(CodeNotYourTurn, "it is not your turn")
 	}
 	// 修改任何状态之前先校验本次指令所需的全部迁移，保证失败时不留下半个回合。
 	if !canAdvance(s.Phase, PhaseEnded) || !canBeginTurnFrom(PhaseEnded) {
-		return s.reject("invalid_command", fmt.Sprintf("回合阶段 %s 不允许结束回合", s.Phase))
+		return s.reject(CodeInvalidCommand, fmt.Sprintf("回合阶段 %s 不允许结束回合", s.Phase))
 	}
 	if err := s.advancePhase(PhaseEnded); err != nil {
-		return s.reject("invalid_command", err.Error())
+		return s.reject(CodeInvalidCommand, err.Error())
 	}
 	s.Revision++
 	s.emit(seat, VisibilityPublic, "turn_ended", map[string]any{
@@ -315,7 +315,7 @@ func (s *State) endTurn(seat int) CommandResult {
 	}
 
 	if err := s.beginTurn(1-seat, true); err != nil {
-		return s.reject("invalid_command", err.Error())
+		return s.reject(CodeInvalidCommand, err.Error())
 	}
 	return s.accepted()
 }
@@ -323,7 +323,7 @@ func (s *State) endTurn(seat int) CommandResult {
 // surrender 立即结束对局，对手获胜。认输不要求当前是自己的回合。
 func (s *State) surrender(seat int) CommandResult {
 	if seat < 0 || seat > 1 {
-		return s.reject("invalid_command", "invalid seat")
+		return s.reject(CodeInvalidCommand, "invalid seat")
 	}
 	s.Revision++
 	s.finish(1-seat, EndReasonSurrender, seat)
@@ -435,7 +435,7 @@ func (s *State) healTarget(actorSeat int, targetID string, amount int) {
 func (s *State) validateSpellTarget(seat int, definition CardDefinition, targetID string) *CommandError {
 	if definition.Kind != CardKindSpell {
 		if targetID != "" {
-			return &CommandError{Code: "invalid_target", Message: "unit cards do not take a target"}
+			return &CommandError{Code: CodeInvalidTarget, Message: "unit cards do not take a target"}
 		}
 		return nil
 	}
@@ -448,14 +448,14 @@ func (s *State) validateSpellTarget(seat int, definition CardDefinition, targetI
 		if s.findUnit(targetID) >= 0 {
 			return nil
 		}
-		return &CommandError{Code: "invalid_target", Message: "arcane_bolt requires an enemy hero or any unit"}
+		return &CommandError{Code: CodeInvalidTarget, Message: "arcane_bolt requires an enemy hero or any unit"}
 	case "healing_light":
 		if targetID == HeroID(seat) || s.findFriendlyUnit(seat, targetID) >= 0 {
 			return nil
 		}
-		return &CommandError{Code: "invalid_target", Message: "healing_light requires a friendly hero or unit"}
+		return &CommandError{Code: CodeInvalidTarget, Message: "healing_light requires a friendly hero or unit"}
 	default:
-		return &CommandError{Code: "invalid_card", Message: "spell has no target rule"}
+		return &CommandError{Code: CodeInvalidCard, Message: "spell has no target rule"}
 	}
 }
 

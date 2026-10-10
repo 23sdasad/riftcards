@@ -5,6 +5,7 @@
 - `overview.md`：系统组件、权威模型、回放和并发设计。
 - `paths-and-boundaries.md`：跨平台路径、关键目录、依赖方向和禁止路径。
 - `match-state-machine.md`：对局生命周期、回合阶段、合法迁移与事件顺序。
+- `command-path.md`：指令链路的分层责任、关联信息语义与拒绝保证。
 - `conventions.md`：命名、错误码、代码组织和协议约定。
 - `testing.md`：测试分层、必测场景和完成标准。
 

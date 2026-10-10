@@ -1,6 +1,6 @@
 # 006 — 指令处理路径与错误边界
 
-- 状态：planned
+- 状态：in-progress
 - 依赖：005
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -45,9 +45,11 @@
 
 ## 预计改动
 
-- 修改：`server/internal/transport/ws/handler.go`、`server/internal/match/manager.go`、`server/internal/match/room.go`、`server/internal/protocol/messages.go`。
-- 修改：`client/src/Core/Session/GameSession.cs`、协议 DTO 与测试。
-- 修改：`ai-docs/contracts/protocol.md` 和指令路径主题文档。
+- 修改：`server/internal/transport/ws/handler.go`（传递信封 `requestId`，错误码改用常量）、`server/internal/match/manager.go`（`Connect`/`JoinQueue`/`LeaveQueue`/`Submit` 接收并回填 `requestId`，未入局显式拒绝）、`server/internal/match/room.go`（`Submit` 回填 `requestId`；`Forfeit` 改用类型化 `MatchEventsData`）、`server/internal/protocol/messages.go`（传输/会话级 `Code*` 常量）、`server/internal/game/types.go`（引擎级 `Code*` 常量，`engine.go` 全部改用常量）。
+- 新增测试：`server/internal/protocol/messages_test.go`、`server/internal/match/{fake_peer_test.go,room_test.go,manager_test.go}`、`server/internal/transport/ws/handler_test.go`。
+- 修改：`client/src/Core/Session/GameSession.cs`（记录待处理请求并按 `requestId` 关联响应，新增 `CommandOutcome`/`LastError`）、`client/tests/.../GameSessionTests.cs`、`ProtocolJsonTests.cs`。
+- 修改：`ai-docs/contracts/protocol.md`（信封语义、响应回填、错误码来源表）、`ai-docs/architecture/conventions.md`、`ai-docs/architecture/testing.md`。
+- 新增：`ai-docs/architecture/command-path.md` 并登记架构索引。
 
 ## 清理与兼容例外
 
@@ -55,19 +57,20 @@
 
 ## 验收标准
 
-- [ ] 所有 `match.command` 响应都保留原始 `requestId`。
-- [ ] 版本冲突、非法指令和终局后指令不改变状态、`revision` 或 `seq`。
-- [ ] 房间内指令严格串行，事件和投影使用同一结算版本。
-- [ ] 每条错误码都有明确产生位置和测试。
-- [ ] Go/C# DTO、协议文档和契约测试一致。
+- [x] 所有 `match.command` 响应都保留原始 `requestId`（handler 传递信封值，manager 与 room 逐层回填；ws 层用真实 WebSocket 端到端断言）。
+- [x] 版本冲突、非法指令和终局后指令不改变状态、`revision` 或 `seq`，也不广播事件。
+- [x] 房间内指令严格串行，事件和投影使用同一结算版本（房间锁覆盖版本检查、结算与快照；测试断言 `baseRevision`/`revision`/`state.revision` 一致）。
+- [x] 每条错误码都有明确产生位置和测试（协议第 5 节表格 + 两端 `Code*` 常量 + 分层测试）。
+- [x] Go/C# DTO、协议文档和契约测试一致（C# DTO 未新增字段；协议文档补 `requestId` 语义与错误码表；C# 测试解析文档示例）。
 
 ## 验证计划与结果
 
 | 日期 | 环境 / 命令 | 预期 | 实际结果 |
 | --- | --- | --- | --- |
-| — | Go room/protocol/WS 测试 | 接受与拒绝路径通过 | 未执行 |
-| — | C# 协议/会话测试 | 可解析全部响应并关联请求 | 未执行 |
-| — | Go 与 C# 测试命令 | 全量通过 | 未执行 |
+| 2026-10-08 | Windows / `go test ./internal/...` | 接受与拒绝路径通过 | 通过：新增 protocol（信封严格解码、错误码）、match（接受/过期版本/外部 matchId/终局后/串行/断线/幂等/事件日志）、ws（真实 WebSocket 端到端）测试 |
+| 2026-10-08 | Windows / `dotnet test` | 可解析全部响应并关联请求 | 通过：11 个测试（原 4 个），新增 requestId 关联、拒绝结果、错误响应、广播不影响关联、协议文档示例解析 |
+| 2026-10-08 | Windows / `task ci` | Go/C# 全量通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、`go test -race`（game/match/pathutil/proc/protocol/ws）、toolchain 单测、`dotnet test` 11 通过 |
+| — | GitHub Actions 三平台 | 通过 | 未执行 |
 
 ## 风险与回退
 
@@ -76,7 +79,16 @@
 ## 决策与工作记录
 
 - 2026-10-08：创建任务。确认指令校验与结算路径在状态机之后单独收口。
+- 2026-10-08：确认 `requestId` 属于信封（`ClientEnvelope.RequestID`），不是 `MatchCommandRequest` 字段；因此作为函数参数逐层传递，不写入任何 DTO。`commandId` 留在载荷中，两者一起回填。
+- 2026-10-08：把回填范围统一到所有请求/响应式消息：`welcome`、`queue.status`、`match.command_result`、`error`、`pong` 都回填原始 `requestId`；广播（`match.started`、`match.events`）不回填。此前只有 `pong` 回填。
+- 2026-10-08：修复 manager 在“会话不在对局中”时静默返回的问题：现在显式返回 `not_in_match`，否则客户端拿不到任何响应。
+- 2026-10-08：`Room.Forfeit` 去掉信封里非契约的 `reason` 字段，改用类型化 `MatchEventsData`；断线按认输处理，结束原因由 `match_ended` 事件给出（规则 10）。
+- 2026-10-08：错误码收敛为常量：传输/会话级放 `protocol`，引擎级放 `game`，避免 `game` 反向依赖 `protocol`。`invalid_command` 此前只在代码中出现，现已补进 `conventions.md` 与协议错误码表。
 
 ## 完成摘要
 
-未完成。
+指令路径已收口为分层责任：ws 只解码与校验前置条件，manager 只做会话到房间的映射，room 负责房间归属、版本检查与串行结算，game 只做规则。`requestId` 确认属于信封，逐层作为参数传递并在所有响应中回填（广播不回填）；`commandId` 留在载荷中一并回填。房间锁覆盖“版本检查 → 结算 → 事件与投影快照”，因此串行结算且 `baseRevision`/`revision`/`state.revision` 一致。拒绝路径统一保证不改状态、不推进 `revision`/`seq`、不广播、不写事件日志。错误码收敛为 `protocol` 与 `game` 的 `Code*` 常量，产生位置与载体写入协议第 5 节。
+
+同时修掉两个真实缺陷：会话不在对局中时 manager 静默丢弃指令（现返回 `not_in_match`），以及 `Forfeit` 在信封里发送非契约的 `reason` 字段（现改为类型化 `MatchEventsData`，断线按认输处理）。C# 会话现在记录待处理请求并按 `requestId` 关联响应，暴露 `LastCommandOutcome` 与 `LastError`。
+
+测试：Go 新增 protocol/match/ws 三层测试（含真实 WebSocket 端到端），C# 由 4 个增加到 11 个。本机 `task ci` 通过。三平台 CI 待推送确认。

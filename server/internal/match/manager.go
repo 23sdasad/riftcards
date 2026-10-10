@@ -37,7 +37,9 @@ func NewManager() *Manager {
 	}
 }
 
-func (m *Manager) Connect(peer Peer, hello protocol.HelloData) {
+// Connect 建立会话并回复 welcome。
+// requestID 来自客户端信封，凡是请求/响应式的消息都必须原样回填。
+func (m *Manager) Connect(peer Peer, requestID string, hello protocol.HelloData) {
 	playerID := randomID("p")
 	session := &session{
 		id:    peer.ID(),
@@ -50,7 +52,7 @@ func (m *Manager) Connect(peer Peer, hello protocol.HelloData) {
 	m.sessions[session.id] = session
 	m.mu.Unlock()
 
-	_ = peer.Send(protocol.NewServerMessage(protocol.TypeWelcome, "", protocol.WelcomeData{
+	_ = peer.Send(protocol.NewServerMessage(protocol.TypeWelcome, requestID, protocol.WelcomeData{
 		ConnectionID:    peer.ID(),
 		PlayerID:        playerID,
 		DisplayName:     hello.DisplayName,
@@ -59,7 +61,9 @@ func (m *Manager) Connect(peer Peer, hello protocol.HelloData) {
 	}))
 }
 
-func (m *Manager) JoinQueue(sessionID string) {
+// JoinQueue 把会话放入匹配队列；凑满两人时创建房间并开始对局。
+// 队列状态响应回填调用方的 requestID；match.started 是广播，不带 requestID。
+func (m *Manager) JoinQueue(sessionID, requestID string) {
 	m.mu.Lock()
 	current, ok := m.sessions[sessionID]
 	if !ok {
@@ -68,13 +72,13 @@ func (m *Manager) JoinQueue(sessionID string) {
 	}
 	if current.room != nil {
 		m.mu.Unlock()
-		_ = current.peer.Send(protocol.NewError("", "invalid_message", "session is already in a match"))
+		_ = current.peer.Send(protocol.NewError(requestID, protocol.CodeInvalidMessage, "session is already in a match"))
 		return
 	}
 	for _, queuedID := range m.waiting {
 		if queuedID == sessionID {
 			m.mu.Unlock()
-			_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, "", protocol.QueueStatusData{
+			_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, requestID, protocol.QueueStatusData{
 				State:    "waiting",
 				Position: 1,
 			}))
@@ -86,7 +90,7 @@ func (m *Manager) JoinQueue(sessionID string) {
 	if len(m.waiting) < 2 {
 		position := len(m.waiting)
 		m.mu.Unlock()
-		_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, "", protocol.QueueStatusData{
+		_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, requestID, protocol.QueueStatusData{
 			State:    "waiting",
 			Position: position,
 		}))
@@ -104,8 +108,8 @@ func (m *Manager) JoinQueue(sessionID string) {
 		delete(m.sessions, first.id)
 		delete(m.sessions, second.id)
 		m.mu.Unlock()
-		_ = first.peer.Send(protocol.NewError("", "internal_error", "failed to create match"))
-		_ = second.peer.Send(protocol.NewError("", "internal_error", "failed to create match"))
+		_ = first.peer.Send(protocol.NewError(requestID, protocol.CodeInternalError, "failed to create match"))
+		_ = second.peer.Send(protocol.NewError(requestID, protocol.CodeInternalError, "failed to create match"))
 		return
 	}
 	first.room = room
@@ -116,7 +120,8 @@ func (m *Manager) JoinQueue(sessionID string) {
 	room.Start()
 }
 
-func (m *Manager) LeaveQueue(sessionID string) {
+// LeaveQueue 把会话移出队列，并回复离开状态。
+func (m *Manager) LeaveQueue(sessionID, requestID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -129,24 +134,29 @@ func (m *Manager) LeaveQueue(sessionID string) {
 	}
 
 	if current, ok := m.sessions[sessionID]; ok {
-		_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, "", protocol.QueueStatusData{
+		_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, requestID, protocol.QueueStatusData{
 			State: "left",
 		}))
 	}
 }
 
-func (m *Manager) Submit(sessionID string, request protocol.MatchCommandRequest) {
+// Submit 把一条 match.command 转交给会话所在房间。
+// 会话不在对局中时必须显式拒绝：否则客户端拿不到任何响应，只能等超时。
+func (m *Manager) Submit(sessionID, requestID string, request protocol.MatchCommandRequest) {
 	m.mu.Lock()
 	current, ok := m.sessions[sessionID]
 	if !ok || current.room == nil {
 		m.mu.Unlock()
+		if ok {
+			_ = current.peer.Send(protocol.NewError(requestID, protocol.CodeNotInMatch, "session is not in a match"))
+		}
 		return
 	}
 	room := current.room
 	seat := current.seat
 	m.mu.Unlock()
 
-	room.Submit(seat, request)
+	room.Submit(seat, requestID, request)
 }
 
 func (m *Manager) Disconnect(sessionID string) {
@@ -168,7 +178,8 @@ func (m *Manager) Disconnect(sessionID string) {
 	m.mu.Unlock()
 
 	if room != nil {
-		room.Forfeit(seat, "disconnect")
+		// MVP 中连接断开按认输处理（规则 10）：由房间产生 match_ended 事件。
+		room.Forfeit(seat)
 	}
 }
 

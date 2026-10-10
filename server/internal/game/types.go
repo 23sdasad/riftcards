@@ -124,6 +124,25 @@ type CommandError struct {
 	Message string `json:"message"`
 }
 
+// 引擎产生的错误码。传输与会话级错误码见 protocol 包的 Code* 常量；
+// 每条错误码的产生位置与响应载体见 ai-docs/contracts/protocol.md。
+const (
+	// CodeInvalidCommand 指令类型未知，或当前回合阶段不接受玩家指令。
+	CodeInvalidCommand = "invalid_command"
+	// CodeNotYourTurn 指令来自非当前回合玩家。
+	CodeNotYourTurn = "not_your_turn"
+	// CodeInvalidCard 卡牌实例不在手牌或场上，或卡牌定义缺失。
+	CodeInvalidCard = "invalid_card"
+	// CodeInsufficientEnergy 费用不足。
+	CodeInsufficientEnergy = "insufficient_energy"
+	// CodeInvalidTarget 目标不合法（含必须优先攻击守卫的情况）。
+	CodeInvalidTarget = "invalid_target"
+	// CodeBoardFull 场地已满，无法召唤单位。
+	CodeBoardFull = "board_full"
+	// CodeMatchFinished 对局已结束，拒绝所有会改变状态的指令。
+	CodeMatchFinished = "match_finished"
+)
+
 type CommandResult struct {
 	Accepted bool
 	Revision int64

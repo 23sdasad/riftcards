@@ -28,6 +28,23 @@ const (
 	TypePong             = "pong"
 )
 
+// 传输与会话层错误码。引擎级错误码见 game 包的 Code* 常量；
+// 每条错误码的产生位置与响应载体见 ai-docs/contracts/protocol.md。
+const (
+	// CodeInvalidMessage 帧或信封无法解析、缺少必填字段、消息类型未知。
+	CodeInvalidMessage = "invalid_message"
+	// CodeUnsupportedProtocol 协议版本不受支持。
+	CodeUnsupportedProtocol = "unsupported_protocol"
+	// CodeNotAuthenticated 尚未发送 hello 就发送其他消息。
+	CodeNotAuthenticated = "not_authenticated"
+	// CodeNotInMatch 会话不在对局中，或 matchId 不属于本会话。
+	CodeNotInMatch = "not_in_match"
+	// CodeStaleRevision expectedRevision 与当前版本不一致。
+	CodeStaleRevision = "stale_revision"
+	// CodeInternalError 服务端内部错误（例如创建对局失败）。
+	CodeInternalError = "internal_error"
+)
+
 type ClientEnvelope struct {
 	Type      string          `json:"type"`
 	RequestID string          `json:"requestId,omitempty"`

@@ -44,6 +44,7 @@
 - `not_authenticated`
 - `not_in_match`
 - `stale_revision`
+- `invalid_command`
 - `not_your_turn`
 - `invalid_card`
 - `insufficient_energy`
@@ -52,7 +53,7 @@
 - `match_finished`
 - `internal_error`
 
-错误消息面向开发者，客户端行为以错误码为准。
+错误消息面向开发者，客户端行为以错误码为准。每条错误码的产生位置、响应载体和代码常量来源见[协议第 5 节](../contracts/protocol.md)；新增错误码必须同时更新该表与两端常量。
 
 ## 文件组织
 

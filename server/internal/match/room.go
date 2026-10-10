@@ -58,22 +58,26 @@ func (r *Room) Start() {
 	}
 }
 
-func (r *Room) Submit(seat int, request protocol.MatchCommandRequest) {
+// Submit 处理一条 match.command。整个处理在房间锁内串行完成：版本检查、结算、
+// 事件与投影快照都取自同一次结算，因此广播里的 revision 与 state 必然一致。
+//
+// requestID 来自客户端信封（不是命令载荷），用于把响应关联回原始请求。
+func (r *Room) Submit(seat int, requestID string, request protocol.MatchCommandRequest) {
 	r.mu.Lock()
 	if request.MatchID != r.id {
 		r.mu.Unlock()
-		_ = r.peers[seat].Send(protocol.NewError("", "not_in_match", "matchId does not belong to this session"))
+		_ = r.peers[seat].Send(protocol.NewError(requestID, protocol.CodeNotInMatch, "matchId does not belong to this session"))
 		return
 	}
 	if request.ExpectedRevision != r.state.Revision {
 		revision := r.state.Revision
 		r.mu.Unlock()
-		_ = r.peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, "", protocol.CommandResultData{
+		_ = r.peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, requestID, protocol.CommandResultData{
 			CommandID: request.CommandID,
 			Accepted:  false,
 			Revision:  revision,
 			Error: &game.CommandError{
-				Code:    "stale_revision",
+				Code:    protocol.CodeStaleRevision,
 				Message: fmt.Sprintf("expected revision %d, current revision is %d", request.ExpectedRevision, revision),
 			},
 		}))
@@ -97,31 +101,33 @@ func (r *Room) Submit(seat int, request protocol.MatchCommandRequest) {
 	peers := r.peers
 	r.mu.Unlock()
 
-	_ = peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, "", protocol.CommandResultData{
+	_ = peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, requestID, protocol.CommandResultData{
 		CommandID: request.CommandID,
 		Accepted:  result.Accepted,
 		Revision:  result.Revision,
 		Error:     result.Error,
 	}))
 
+	// 拒绝路径不广播：既不改变状态，也不产生领域事件。
 	if !result.Accepted || len(events) == 0 {
 		return
 	}
 
 	for eventSeat := 0; eventSeat < 2; eventSeat++ {
-		visibleEvents := game.EventsForSeat(events, eventSeat)
 		_ = peers[eventSeat].Send(protocol.NewServerMessage(protocol.TypeMatchEvents, "", protocol.MatchEventsData{
 			MatchID:      r.id,
 			BaseRevision: baseRevision,
 			Revision:     result.Revision,
 			LastEventSeq: lastEventSeq,
-			Events:       visibleEvents,
+			Events:       game.EventsForSeat(events, eventSeat),
 			State:        views[eventSeat],
 		}))
 	}
 }
 
-func (r *Room) Forfeit(seat int, reason string) {
+// Forfeit 让 seat 认输并结束对局。断线也走这条路径（MVP 规则 10）：
+// 结束原因由 match_ended 事件给出，不在信封里另加字段。
+func (r *Room) Forfeit(seat int) {
 	if seat < 0 || seat > 1 {
 		return
 	}
@@ -151,25 +157,13 @@ func (r *Room) Forfeit(seat int, reason string) {
 	}
 
 	for eventSeat := 0; eventSeat < 2; eventSeat++ {
-		eventData := make([]map[string]any, 0, len(events))
-		for _, event := range game.EventsForSeat(events, eventSeat) {
-			eventData = append(eventData, map[string]any{
-				"seq":        event.Seq,
-				"revision":   event.Revision,
-				"type":       event.Type,
-				"actorSeat":  event.ActorSeat,
-				"visibility": event.Visibility,
-				"data":       event.Data,
-			})
-		}
-		_ = peers[eventSeat].Send(protocol.NewServerMessage(protocol.TypeMatchEvents, "", map[string]any{
-			"matchId":      r.id,
-			"baseRevision": baseRevision,
-			"revision":     result.Revision,
-			"lastEventSeq": lastEventSeq,
-			"events":       eventData,
-			"state":        views[eventSeat],
-			"reason":       reason,
+		_ = peers[eventSeat].Send(protocol.NewServerMessage(protocol.TypeMatchEvents, "", protocol.MatchEventsData{
+			MatchID:      r.id,
+			BaseRevision: baseRevision,
+			Revision:     result.Revision,
+			LastEventSeq: lastEventSeq,
+			Events:       game.EventsForSeat(events, eventSeat),
+			State:        views[eventSeat],
 		}))
 	}
 }

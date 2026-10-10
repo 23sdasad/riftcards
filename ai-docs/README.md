@@ -24,6 +24,7 @@ ai-docs/
 │  ├─ conventions.md
 │  ├─ paths-and-boundaries.md
 │  ├─ match-state-machine.md
+│  ├─ command-path.md
 │  └─ testing.md
 ├─ contracts/               # 对外协议与技术选型
 │  ├─ README.md
@@ -47,10 +48,11 @@ ai-docs/
 4. `architecture/paths-and-boundaries.md`：路径语义、关键目录、允许依赖和禁止路径。
 5. `architecture/conventions.md`：命名、协议、错误、日志和代码组织约定。
 6. `architecture/match-state-machine.md`：对局生命周期、回合阶段、合法迁移与事件顺序。
-7. `architecture/testing.md`：测试层次、必测场景和验证命令。
-8. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
-9. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
-10. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
+7. `architecture/command-path.md`：指令链路分层责任、requestId 语义与拒绝保证。
+8. `architecture/testing.md`：测试层次、必测场景和验证命令。
+9. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
+10. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
+11. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
 
 ## 文档更新规则
 
