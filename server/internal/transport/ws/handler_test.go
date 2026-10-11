@@ -14,6 +14,7 @@ import (
 
 	"github.com/mjq/riftcards/server/internal/game"
 	"github.com/mjq/riftcards/server/internal/match"
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
@@ -108,7 +109,7 @@ func (c *testClient) hello(requestID, displayName string) {
 // hello -> queue.join -> match.started -> match.command，断言响应回填信封 requestId。
 func TestCommandResponseEchoesEnvelopeRequestID(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	server := httptest.NewServer(NewHandler(match.NewManager(), logger, []string{"*"}))
+	server := httptest.NewServer(NewHandler(match.NewManager(logger, metrics.New(), 0), logger, []string{"*"}, metrics.New()))
 	defer server.Close()
 
 	first := dialTestServer(t, server)
@@ -182,7 +183,7 @@ func TestCommandResponseEchoesEnvelopeRequestID(t *testing.T) {
 // TestProtocolErrorsEchoRequestID 覆盖协议级错误：未知类型与未握手。
 func TestProtocolErrorsEchoRequestID(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	server := httptest.NewServer(NewHandler(match.NewManager(), logger, []string{"*"}))
+	server := httptest.NewServer(NewHandler(match.NewManager(logger, metrics.New(), 0), logger, []string{"*"}, metrics.New()))
 	defer server.Close()
 
 	client := dialTestServer(t, server)

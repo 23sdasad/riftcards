@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/mjq/riftcards/server/internal/match"
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
@@ -20,13 +21,15 @@ type Handler struct {
 	manager        *match.Manager
 	logger         *slog.Logger
 	allowedOrigins []string
+	metrics        *metrics.Registry
 }
 
-func NewHandler(manager *match.Manager, logger *slog.Logger, allowedOrigins []string) *Handler {
+func NewHandler(manager *match.Manager, logger *slog.Logger, allowedOrigins []string, registry *metrics.Registry) *Handler {
 	return &Handler{
 		manager:        manager,
 		logger:         logger,
 		allowedOrigins: allowedOrigins,
+		metrics:        registry,
 	}
 }
 
@@ -42,8 +45,14 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	ctx := request.Context()
 	peer := newPeer(ctx, connection, h.logger)
-	defer peer.Close()
-	defer h.manager.Disconnect(peer.ID())
+	h.metrics.ConnectionOpened()
+	h.logger.Info("connection opened", "peerId", peer.ID())
+	defer func() {
+		peer.Close()
+		h.manager.Disconnect(peer.ID())
+		h.metrics.ConnectionClosed()
+		h.logger.Info("connection closed", "peerId", peer.ID())
+	}()
 
 	h.readLoop(ctx, peer)
 }

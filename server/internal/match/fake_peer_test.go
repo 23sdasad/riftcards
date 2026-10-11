@@ -1,10 +1,17 @@
 package match
 
 import (
+	"io"
+	"log/slog"
 	"sync"
 
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
+
+// testLogger 丢弃日志，避免测试输出噪声。
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
 
 // fakePeer 记录服务端发出的所有信封，供房间与队列测试断言。
 type fakePeer struct {

@@ -95,7 +95,14 @@ task run:client   # 打开 Godot 客户端工程
 服务端启动后监听 `http://127.0.0.1:8080`：
 
 - 健康检查：`GET /healthz`
+- 运行时指标：`GET /metrics`（`name value` 每行一条，只做累加）
 - WebSocket：`GET /ws`
+
+服务端参数：
+
+- `-addr`：监听地址，默认 `127.0.0.1:8080`；用 `127.0.0.1:0` 让系统选端口（日志会打印真实地址）。
+- `-log-level`：`debug`、`info`、`warn`、`error`。
+- `-seed`：固定每局随机种子，**仅供本地端到端测试**，让先手与牌序可复现；生产保持默认 `0`（每局随机）。
 
 客户端默认连接 `ws://127.0.0.1:8080/ws`，联机时会进入两人匹配队列。
 
@@ -124,6 +131,14 @@ task run:client   # 打开 Godot 客户端工程
 
 ```powershell
 godot --path client -- --server=ws://127.0.0.1:8080/ws --smoke-end-turn
+```
+
+## 本地端到端验收
+
+`task ci` 会运行可重复的端到端测试：编译并启动真实服务进程，两个独立协议客户端完成一整局，断言投影、隐藏信息、版本、`seq`、终局结果与运行时指标，并确认测试结束后没有孤儿进程。单独运行：
+
+```powershell
+go -C server test ./internal/e2e
 ```
 
 ## 核心不变量

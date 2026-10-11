@@ -2,9 +2,11 @@ package match
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/mjq/riftcards/server/internal/game"
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
@@ -17,17 +19,22 @@ type Room struct {
 	eventLog []game.Event
 	started  bool
 	finished bool
+
+	logger  *slog.Logger
+	metrics *metrics.Registry
 }
 
-func NewRoom(id string, seed int64, peers [2]Peer) (*Room, error) {
+func NewRoom(id string, seed int64, peers [2]Peer, logger *slog.Logger, registry *metrics.Registry) (*Room, error) {
 	state, err := game.NewMatch(id, seed)
 	if err != nil {
 		return nil, err
 	}
 	return &Room{
-		id:    id,
-		state: state,
-		peers: peers,
+		id:      id,
+		state:   state,
+		peers:   peers,
+		logger:  logger,
+		metrics: registry,
 	}, nil
 }
 
@@ -66,12 +73,21 @@ func (r *Room) Submit(seat int, requestID string, request protocol.MatchCommandR
 	r.mu.Lock()
 	if request.MatchID != r.id {
 		r.mu.Unlock()
+		r.logger.Warn("command for foreign match", "matchId", r.id, "seat", seat, "requestedMatchId", request.MatchID)
 		_ = r.peers[seat].Send(protocol.NewError(requestID, protocol.CodeNotInMatch, "matchId does not belong to this session"))
 		return
 	}
 	if request.ExpectedRevision != r.state.Revision {
 		revision := r.state.Revision
 		r.mu.Unlock()
+		r.metrics.CommandRejected()
+		r.logger.Warn("stale revision",
+			"matchId", r.id,
+			"seat", seat,
+			"commandId", request.CommandID,
+			"expectedRevision", request.ExpectedRevision,
+			"currentRevision", revision,
+		)
 		_ = r.peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, requestID, protocol.CommandResultData{
 			CommandID: request.CommandID,
 			Accepted:  false,
@@ -91,6 +107,10 @@ func (r *Room) Submit(seat int, requestID string, request protocol.MatchCommandR
 		if r.state.Status == game.StatusFinished {
 			r.finished = true
 		}
+		r.metrics.CommandAccepted()
+		r.metrics.EventsEmitted(len(result.Events))
+	} else {
+		r.metrics.CommandRejected()
 	}
 	events := append([]game.Event(nil), result.Events...)
 	views := [2]game.MatchView{
@@ -100,6 +120,32 @@ func (r *Room) Submit(seat int, requestID string, request protocol.MatchCommandR
 	lastEventSeq := r.state.LastEventSeq
 	peers := r.peers
 	r.mu.Unlock()
+
+	if result.Accepted {
+		r.logger.Info("command accepted",
+			"matchId", r.id,
+			"seat", seat,
+			"commandId", request.CommandID,
+			"type", request.Command.Type,
+			"baseRevision", baseRevision,
+			"revision", result.Revision,
+			"events", len(events),
+			"lastEventSeq", lastEventSeq,
+		)
+	} else {
+		code := "unknown"
+		if result.Error != nil {
+			code = result.Error.Code
+		}
+		r.logger.Info("command rejected",
+			"matchId", r.id,
+			"seat", seat,
+			"commandId", request.CommandID,
+			"type", request.Command.Type,
+			"code", code,
+			"revision", result.Revision,
+		)
+	}
 
 	_ = peers[seat].Send(protocol.NewServerMessage(protocol.TypeMatchCommandDone, requestID, protocol.CommandResultData{
 		CommandID: request.CommandID,
@@ -114,6 +160,7 @@ func (r *Room) Submit(seat int, requestID string, request protocol.MatchCommandR
 	}
 
 	for eventSeat := 0; eventSeat < 2; eventSeat++ {
+		r.metrics.BroadcastSent()
 		_ = peers[eventSeat].Send(protocol.NewServerMessage(protocol.TypeMatchEvents, "", protocol.MatchEventsData{
 			MatchID:      r.id,
 			BaseRevision: baseRevision,
@@ -142,6 +189,8 @@ func (r *Room) Forfeit(seat int) {
 	if result.Accepted {
 		r.eventLog = append(r.eventLog, result.Events...)
 		r.finished = true
+		r.metrics.CommandAccepted()
+		r.metrics.EventsEmitted(len(result.Events))
 	}
 	events := append([]game.Event(nil), result.Events...)
 	views := [2]game.MatchView{
@@ -152,11 +201,20 @@ func (r *Room) Forfeit(seat int) {
 	peers := r.peers
 	r.mu.Unlock()
 
+	r.logger.Info("match forfeited",
+		"matchId", r.id,
+		"seat", seat,
+		"accepted", result.Accepted,
+		"revision", result.Revision,
+		"lastEventSeq", lastEventSeq,
+	)
+
 	if !result.Accepted || len(events) == 0 {
 		return
 	}
 
 	for eventSeat := 0; eventSeat < 2; eventSeat++ {
+		r.metrics.BroadcastSent()
 		_ = peers[eventSeat].Send(protocol.NewServerMessage(protocol.TypeMatchEvents, "", protocol.MatchEventsData{
 			MatchID:      r.id,
 			BaseRevision: baseRevision,

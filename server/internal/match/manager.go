@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"sync"
 
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
@@ -20,6 +22,11 @@ type Manager struct {
 	sessions map[string]*session
 	waiting  []string
 	rooms    map[string]*Room
+
+	logger  *slog.Logger
+	metrics *metrics.Registry
+	// fixedSeed 非 0 时每局都用该种子，便于本地端到端测试复现；生产保持 0。
+	fixedSeed int64
 }
 
 type session struct {
@@ -30,10 +37,13 @@ type session struct {
 	room  *Room
 }
 
-func NewManager() *Manager {
+func NewManager(logger *slog.Logger, registry *metrics.Registry, fixedSeed int64) *Manager {
 	return &Manager{
-		sessions: make(map[string]*session),
-		rooms:    make(map[string]*Room),
+		sessions:  make(map[string]*session),
+		rooms:     make(map[string]*Room),
+		logger:    logger,
+		metrics:   registry,
+		fixedSeed: fixedSeed,
 	}
 }
 
@@ -51,6 +61,8 @@ func (m *Manager) Connect(peer Peer, requestID string, hello protocol.HelloData)
 	m.mu.Lock()
 	m.sessions[session.id] = session
 	m.mu.Unlock()
+
+	m.logger.Info("session connected", "peerId", peer.ID(), "displayName", hello.DisplayName)
 
 	_ = peer.Send(protocol.NewServerMessage(protocol.TypeWelcome, requestID, protocol.WelcomeData{
 		ConnectionID:    peer.ID(),
@@ -87,6 +99,7 @@ func (m *Manager) JoinQueue(sessionID, requestID string) {
 	}
 
 	m.waiting = append(m.waiting, sessionID)
+	m.logger.Info("queue joined", "sessionId", sessionID, "position", len(m.waiting))
 	if len(m.waiting) < 2 {
 		position := len(m.waiting)
 		m.mu.Unlock()
@@ -103,11 +116,16 @@ func (m *Manager) JoinQueue(sessionID, requestID string) {
 	first.seat = 0
 	second.seat = 1
 
-	room, err := NewRoom(randomID("m"), randomSeed(), [2]Peer{first.peer, second.peer})
+	seed := m.fixedSeed
+	if seed == 0 {
+		seed = randomSeed()
+	}
+	room, err := NewRoom(randomID("m"), seed, [2]Peer{first.peer, second.peer}, m.logger, m.metrics)
 	if err != nil {
 		delete(m.sessions, first.id)
 		delete(m.sessions, second.id)
 		m.mu.Unlock()
+		m.logger.Error("match creation failed", "error", err)
 		_ = first.peer.Send(protocol.NewError(requestID, protocol.CodeInternalError, "failed to create match"))
 		_ = second.peer.Send(protocol.NewError(requestID, protocol.CodeInternalError, "failed to create match"))
 		return
@@ -116,6 +134,14 @@ func (m *Manager) JoinQueue(sessionID, requestID string) {
 	second.room = room
 	m.rooms[room.ID()] = room
 	m.mu.Unlock()
+
+	m.metrics.MatchStarted()
+	m.logger.Info("match created",
+		"matchId", room.ID(),
+		"seed", seed,
+		"fixedSeed", m.fixedSeed != 0,
+		"sessions", []string{first.id, second.id},
+	)
 
 	room.Start()
 }
@@ -134,6 +160,7 @@ func (m *Manager) LeaveQueue(sessionID, requestID string) {
 	}
 
 	if current, ok := m.sessions[sessionID]; ok {
+		m.logger.Info("queue left", "sessionId", sessionID)
 		_ = current.peer.Send(protocol.NewServerMessage(protocol.TypeQueueStatus, requestID, protocol.QueueStatusData{
 			State: "left",
 		}))
@@ -148,6 +175,7 @@ func (m *Manager) Submit(sessionID, requestID string, request protocol.MatchComm
 	if !ok || current.room == nil {
 		m.mu.Unlock()
 		if ok {
+			m.logger.Warn("command without match", "sessionId", sessionID, "matchId", request.MatchID)
 			_ = current.peer.Send(protocol.NewError(requestID, protocol.CodeNotInMatch, "session is not in a match"))
 		}
 		return
@@ -176,6 +204,8 @@ func (m *Manager) Disconnect(sessionID string) {
 	room := current.room
 	seat := current.seat
 	m.mu.Unlock()
+
+	m.logger.Info("session disconnected", "sessionId", sessionID, "seat", seat, "inMatch", room != nil)
 
 	if room != nil {
 		// MVP 中连接断开按认输处理（规则 10）：由房间产生 match_ended 事件。

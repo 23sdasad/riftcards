@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mjq/riftcards/server/internal/game"
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
@@ -12,7 +13,7 @@ func newTestRoom(t *testing.T, matchID string) (*Room, *fakePeer, *fakePeer) {
 	t.Helper()
 	first := newFakePeer("peer-0")
 	second := newFakePeer("peer-1")
-	room, err := NewRoom(matchID, 42, [2]Peer{first, second})
+	room, err := NewRoom(matchID, 42, [2]Peer{first, second}, testLogger(), metrics.New())
 	if err != nil {
 		t.Fatalf("NewRoom 失败：%v", err)
 	}

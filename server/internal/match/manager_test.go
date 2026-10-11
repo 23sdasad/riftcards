@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/mjq/riftcards/server/internal/game"
+	"github.com/mjq/riftcards/server/internal/metrics"
 	"github.com/mjq/riftcards/server/internal/protocol"
 )
 
 func TestConnectEchoesRequestIDOnWelcome(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	peer := newFakePeer("peer-0")
 
 	manager.Connect(peer, "req-hello", protocol.HelloData{DisplayName: "Tester"})
@@ -23,7 +24,7 @@ func TestConnectEchoesRequestIDOnWelcome(t *testing.T) {
 }
 
 func TestJoinQueueEchoesRequestIDWhileWaiting(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	peer := newFakePeer("peer-0")
 	manager.Connect(peer, "req-hello", protocol.HelloData{DisplayName: "Tester"})
 	peer.reset()
@@ -44,7 +45,7 @@ func TestJoinQueueEchoesRequestIDWhileWaiting(t *testing.T) {
 }
 
 func TestLeaveQueueEchoesRequestID(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	peer := newFakePeer("peer-0")
 	manager.Connect(peer, "req-hello", protocol.HelloData{DisplayName: "Tester"})
 	manager.JoinQueue("peer-0", "req-queue")
@@ -66,7 +67,7 @@ func TestLeaveQueueEchoesRequestID(t *testing.T) {
 }
 
 func TestSubmitWithoutRoomReturnsNotInMatch(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	peer := newFakePeer("peer-0")
 	manager.Connect(peer, "req-hello", protocol.HelloData{DisplayName: "Tester"})
 	peer.reset()
@@ -91,7 +92,7 @@ func TestSubmitWithoutRoomReturnsNotInMatch(t *testing.T) {
 }
 
 func TestPairingStartsMatchAndRoutesCommands(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	first := newFakePeer("peer-0")
 	second := newFakePeer("peer-1")
 	manager.Connect(first, "req-hello-0", protocol.HelloData{DisplayName: "One"})
@@ -138,7 +139,7 @@ func TestPairingStartsMatchAndRoutesCommands(t *testing.T) {
 }
 
 func TestDisconnectForfeitsMatch(t *testing.T) {
-	manager := NewManager()
+	manager := NewManager(testLogger(), metrics.New(), 0)
 	first := newFakePeer("peer-0")
 	second := newFakePeer("peer-1")
 	manager.Connect(first, "req-hello-0", protocol.HelloData{DisplayName: "One"})

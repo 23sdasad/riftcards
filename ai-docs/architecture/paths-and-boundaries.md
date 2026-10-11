@@ -62,6 +62,8 @@
 | 协议固定样例 | `ai-docs/contracts/protocol-fixtures/` | Go 与 C# 测试共用的可执行样例；由测试用 `pathutil` 定位，不依赖工作目录 |
 | 服务端 | `server/go.mod`、`server/cmd/riftcards-server/`、`server/internal/` | Go 模块、进程入口、内部模块 |
 | 平台适配 | `server/internal/platform/pathutil/`、`server/internal/platform/proc/` | 跨平台路径语义与进程启动/终止；只有适配层可以使用它们 |
+| 运行时指标 | `server/internal/metrics/` | 进程内累加计数器；叶子包，不参与规则或状态计算 |
+| 端到端测试 | `server/internal/e2e/` | 用 `platform/proc` 启动真实服务进程，两个协议客户端验收一整局；只供测试使用 |
 | 客户端 | `client/Riftcards.Client.csproj`、`client/src/`、`client/tests/`、`client/**/packages.lock.json` | Godot 工程、Core/Godot 分层、纯 .NET 测试和 NuGet 锁定 |
 | LLVM 工具链 | `tools/llvm/`、`.clang-format`、`.clang-tidy` | 固定编译器版本、Windows `clang-cl` 入口和检查规则 |
 | CI | `.github/workflows/ci.yml` | Windows、macOS、Linux 执行同一 `task ci` 门禁 |
