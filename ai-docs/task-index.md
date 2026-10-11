@@ -68,3 +68,4 @@ ai-docs/
 | 014 | [用 Go 引导全部依赖](task/014-go-toolchain-bootstrap.md) | 012 | done |
 | 015 | [Windows LLVM 改用官方 MSI 管理安装](task/015-windows-llvm-msi.md) | 014 | done |
 | 016 | [Godot 界面可用性与视觉整理](task/016-godot-ui-redesign.md) | 008、009 | done |
+| 017 | [单机模式与三档 AI 对手](task/017-single-player-and-bot-ai.md) | 005、006、007、010、016 | ready |
