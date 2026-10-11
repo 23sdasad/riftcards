@@ -78,6 +78,52 @@ public sealed class GameSessionEventQueueTests
         Assert.Equal([1L], presenter.Presented);
     }
 
+    [Fact]
+    public void MatchStartedResolvesPendingQueueJoin()
+    {
+        var transport = new FakeTransport();
+        var session = new GameSession(transport);
+        session.Connect("ws://127.0.0.1:8080/ws", "Tester");
+        transport.Open();
+
+        // 连接后自动发出 hello 与 queue.join：先应答它们，得到干净的起点。
+        transport.Receive($$"""
+            {
+              "type": "welcome",
+              "requestId": "{{RequestIdAt(transport, 0)}}",
+              "data": {
+                "connectionId": "c1",
+                "playerId": "p1",
+                "displayName": "Tester",
+                "serverVersion": "0.1.0",
+                "protocolVersion": "0.1"
+              }
+            }
+            """);
+        transport.Receive($$"""
+            {
+              "type": "queue.status",
+              "requestId": "{{RequestIdAt(transport, 1)}}",
+              "data": { "state": "waiting", "position": 1 }
+            }
+            """);
+        Assert.Equal(0, session.PendingRequests);
+
+        // 配对成功的一方不会再收到 queue.status：match.started 就是 queue.join 的答复。
+        session.JoinQueue();
+        Assert.Equal(1, session.PendingRequests);
+
+        transport.Receive(MatchStarted("m_1"));
+
+        Assert.Equal(0, session.PendingRequests);
+    }
+
+    private static string RequestIdAt(FakeTransport transport, int index)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(transport.Sent[index]);
+        return document.RootElement.GetProperty("requestId").GetString() ?? string.Empty;
+    }
+
     private static string MatchStarted(string matchId) => $$"""
         {
           "type": "match.started",

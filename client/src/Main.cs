@@ -7,8 +7,9 @@ using Riftcards.Client.Godot.Match;
 namespace Riftcards.Client;
 
 /// <summary>
-/// 应用壳：连接设置、会话状态与事件面板。对局交互在 <see cref="MatchBoardView"/>，
-/// 事件播放由 <see cref="EventLogPanel"/> 消费队列，这里不做任何规则判断。
+/// 应用壳：顶栏（连接设置与会话状态）、对局面板与事件面板。
+/// 对局交互在 <see cref="MatchBoardView"/>，事件播放由 <see cref="EventLogPanel"/> 消费队列，
+/// 这里不做任何规则判断。视觉约定见 ai-docs/architecture/client-ui.md。
 /// </summary>
 public sealed partial class Main : Control
 {
@@ -21,9 +22,13 @@ public sealed partial class Main : Control
     private string _lastLoggedStatus = string.Empty;
     private bool _smokeEndTurn;
     private bool _smokeCommandSent;
+    private string? _screenshotPath;
+    private ulong _screenshotDeadlineMs;
 
     public override void _Ready()
     {
+        RenderingServer.SetDefaultClearColor(UiTheme.Background);
+
         _transport = new GodotWebSocketTransport();
         AddChild(_transport);
         _session = new GameSession(_transport);
@@ -43,52 +48,55 @@ public sealed partial class Main : Control
 
         var margin = new MarginContainer();
         margin.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", 20);
-        margin.AddThemeConstantOverride("margin_top", 16);
-        margin.AddThemeConstantOverride("margin_right", 20);
-        margin.AddThemeConstantOverride("margin_bottom", 16);
+        margin.AddThemeConstantOverride("margin_left", 16);
+        margin.AddThemeConstantOverride("margin_top", 12);
+        margin.AddThemeConstantOverride("margin_right", 16);
+        margin.AddThemeConstantOverride("margin_bottom", 12);
         AddChild(margin);
 
-        var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 8);
+        var root = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        root.AddThemeConstantOverride("separation", UiTheme.SectionSeparation);
         margin.AddChild(root);
 
-        root.AddChild(new Label { Text = "riftcards" });
+        // 顶栏：标题、会话状态、服务器地址与连接操作。
+        var topBar = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        topBar.AddThemeConstantOverride("separation", UiTheme.ElementSeparation);
+        topBar.AddChild(UiTheme.Title("riftcards"));
 
-        var serverRow = new HBoxContainer();
-        serverRow.AddThemeConstantOverride("separation", 8);
-        root.AddChild(serverRow);
+        _statusLabel = UiTheme.Caption("未连接", UiTheme.TextSecondary);
+        _statusLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _statusLabel.VerticalAlignment = VerticalAlignment.Center;
+        topBar.AddChild(_statusLabel);
 
         _serverInput = new LineEdit
         {
             Text = "ws://127.0.0.1:8080/ws",
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(260, 0),
         };
-        serverRow.AddChild(_serverInput);
+        topBar.AddChild(_serverInput);
 
         var connectButton = new Button { Text = "连接" };
+        UiTheme.StyleButton(connectButton, UiTheme.Accent);
         connectButton.Pressed += Connect;
-        serverRow.AddChild(connectButton);
+        topBar.AddChild(connectButton);
 
         var queueButton = new Button { Text = "进入匹配" };
+        UiTheme.StyleButton(queueButton, UiTheme.Accent);
         queueButton.Pressed += _session.JoinQueue;
-        serverRow.AddChild(queueButton);
+        topBar.AddChild(queueButton);
 
-        _statusLabel = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
-        root.AddChild(_statusLabel);
+        root.AddChild(UiTheme.PanelBox(topBar));
 
-        // 用滚动容器包住对局面板：窗口变小时核心操作仍然可达。
-        var scroll = new ScrollContainer
+        // 对局区优先占用剩余空间；事件面板固定小高度并位于底部。
+        _boardView = new MatchBoardView
         {
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
-        root.AddChild(scroll);
+        root.AddChild(_boardView);
 
-        _boardView = new MatchBoardView { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        scroll.AddChild(_boardView);
-
-        _eventPanel = new EventLogPanel();
+        _eventPanel = new EventLogPanel { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         root.AddChild(_eventPanel);
     }
 
@@ -100,10 +108,25 @@ public sealed partial class Main : Control
     /// <summary>
     /// 开发用自动连接：`godot --path client -- --server=ws://127.0.0.1:8080/ws`。
     /// 连接成功后 <see cref="GameSession"/> 会自动发送 hello 并进入匹配，因此无需额外操作。
-    /// 用于无显示器的本地冒烟。
     /// </summary>
     private void TryAutoStart()
     {
+        // 截图与自动出牌不依赖 --server=，但通常一起使用。
+        _screenshotPath = ReadUserArg("--screenshot=");
+        if (_screenshotPath is not null)
+        {
+            var delay = ReadUserArg("--screenshot-delay=");
+            var seconds = double.TryParse(delay, out var parsed) ? parsed : 8.0;
+            // 按真实时间计时，不按帧数：窗口未限帧时帧数会飞快跑完。
+            _screenshotDeadlineMs = Time.GetTicksMsec() + (ulong)Math.Max(100, seconds * 1000);
+            GD.Print($"[riftcards] screenshot {_screenshotPath} after {seconds:0.#}s");
+        }
+        if (ReadUserArg("--smoke-autoplay") is not null)
+        {
+            _boardView.EnableAutoPlay();
+            GD.Print("[riftcards] smoke: autoplay enabled");
+        }
+
         var server = ReadUserArg("--server=");
         if (string.IsNullOrWhiteSpace(server))
         {
@@ -113,6 +136,22 @@ public sealed partial class Main : Control
         _smokeEndTurn = ReadUserArg("--smoke-end-turn") is not null;
         GD.Print($"[riftcards] autostart {server} (smoke-end-turn={_smokeEndTurn})");
         Connect();
+    }
+
+    /// <summary>开发用截图：等待指定时间后保存视口并退出，用于人工核对界面布局。</summary>
+    public override void _Process(double delta)
+    {
+        if (_screenshotPath is null || Time.GetTicksMsec() < _screenshotDeadlineMs)
+        {
+            return;
+        }
+
+        var path = _screenshotPath;
+        _screenshotPath = null;
+        var image = GetViewport().GetTexture().GetImage();
+        var error = image.SavePng(path);
+        GD.Print($"[riftcards] screenshot saved={path} size={image.GetWidth()}x{image.GetHeight()} error={error}");
+        GetTree().Quit();
     }
 
     private static string? ReadUserArg(string prefix)

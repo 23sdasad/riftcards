@@ -9,7 +9,7 @@ riftcards 是一个两人回合制卡牌对战项目：
 - 客户端职责：发送指令、播放服务端事件、渲染按玩家裁剪后的状态
 - 服务端职责：匹配、校验、结算、生成事件、广播回放、保存权威日志
 
-当前仓库处于 Phase 0：规则、协议、工程边界、工具链和最小可运行骨架已经建立，玩法内容与 Godot 表现层会在后续阶段扩展。
+当前仓库处于 Phase 1 完成状态：规则、协议、工程边界、工具链、服务端权威结算、Godot 可操作对局界面、事件队列与本地端到端验收都已建立（见[路线图](ai-docs/product/roadmap.md)）。
 
 ## 文档入口
 
@@ -72,9 +72,65 @@ task test         # go test -race、dotnet test
 task check        # fmt + lint + test
 task ci           # 只读门禁：fmt:check + lint + test，与 CI 相同
 task vuln         # govulncheck 依赖漏洞扫描
-task run:server   # 启动权威服务端
-task run:client   # 打开 Godot 客户端工程
 ```
+
+## 本地启动
+
+三步：引导依赖 → 起服务端 → 起**两个**客户端（两人对局必须两个客户端，只开一个会停在匹配队列）。
+
+```powershell
+# 1. 首次引导（只需一次；此命令不依赖 task）
+go -C tools/toolchain run . bootstrap
+task env                                  # 确认 godot / dotnet / go 都已就绪
+
+# 2. 启动权威服务端（默认 127.0.0.1:8080）
+task run:server
+
+# 3. 启动客户端：打开 Godot 编辑器，按 F5 运行
+task run:client
+```
+
+两个客户端有两种起法：
+
+```powershell
+# A. 命令行起两个实例（推荐本地对测，不需要编辑器）
+#    task env 会打印 Godot 的实际路径；Windows 是 .tools\bin\godot.cmd，macOS/Linux 是 .tools/bin/godot
+.tools\bin\godot.cmd --path client -- --server=ws://127.0.0.1:8080/ws
+.tools\bin\godot.cmd --path client -- --server=ws://127.0.0.1:8080/ws
+
+# B. 编辑器里起两个实例：调试 → 运行多个实例（Godot 4.4+），或再打开一个编辑器窗口
+```
+
+两个客户端都点「连接」后会自动进入匹配队列；凑满两人即开局，先手由服务端决定。
+
+### 客户端开发参数
+
+在 `--` 之后传入（`godot --path client -- <参数>`），用于无人工操作的冒烟与截图：
+
+| 参数 | 作用 |
+| --- | --- |
+| `--server=ws://host:port/ws` | 启动后自动连接（连接成功即自动 `hello` 并进入匹配） |
+| `--smoke-end-turn` | 轮到自己时自动提交一次结束回合，便于观察真实事件顺序 |
+| `--smoke-autoplay` | 自动出牌与攻击（走与点击相同的意图路径），用于冒烟和截图 |
+| `--screenshot=<绝对路径>` | 等待指定时间后保存视口为 PNG 并退出 |
+| `--screenshot-delay=<秒>` | 截图等待时间，默认 8 秒 |
+
+```powershell
+# 例：固定种子起服务端，两个自动出牌的客户端，其中一个 20 秒后截图
+go -C server run ./cmd/riftcards-server -addr 127.0.0.1:8080 -seed 20261008
+.tools\bin\godot.cmd --path client -- --server=ws://127.0.0.1:8080/ws --smoke-autoplay --screenshot=C:\tmp\board.png --screenshot-delay=20
+.tools\bin\godot.cmd --path client -- --server=ws://127.0.0.1:8080/ws --smoke-autoplay
+```
+
+### 服务端参数
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `-addr` | `127.0.0.1:8080` | 监听地址；用 `127.0.0.1:0` 让系统选端口（真实地址打印在日志里） |
+| `-log-level` | `info` | `debug`、`info`、`warn`、`error` |
+| `-seed` | `0` | 固定每局随机种子，**仅供本地测试**；生产保持 `0`（每局随机） |
+
+服务端启动后监听 `http://127.0.0.1:8080`：
 
 `.tools/` 已被 git 忽略，删除它即可完全重来。`.tools/toolchain.env` 记录各依赖的实际路径，Taskfile 通过它把 `CC`、`CXX`、`DOTNET_ROOT`、`LLVM_MINGW_ROOT`、`LLVM_CLANG_CL` 指向仓库内工具链，因此不需要修改系统 PATH 或用户环境变量；`task` 本身安装在 `$(go env GOPATH)/bin`，若该目录不在 PATH，引导结束时会打印需要追加的路径。`go test -race` 在 Windows 上通过 [tools/llvm/clang-cl.cmd](tools/llvm/clang-cl.cmd) 使用固定的 LLVM 23.1.3 与 LLVM-MinGW；Linux/macOS 使用系统 `clang`。
 
@@ -98,17 +154,9 @@ task run:client   # 打开 Godot 客户端工程
 - 运行时指标：`GET /metrics`（`name value` 每行一条，只做累加）
 - WebSocket：`GET /ws`
 
-服务端参数：
-
-- `-addr`：监听地址，默认 `127.0.0.1:8080`；用 `127.0.0.1:0` 让系统选端口（日志会打印真实地址）。
-- `-log-level`：`debug`、`info`、`warn`、`error`。
-- `-seed`：固定每局随机种子，**仅供本地端到端测试**，让先手与牌序可复现；生产保持默认 `0`（每局随机）。
-
 客户端默认连接 `ws://127.0.0.1:8080/ws`，联机时会进入两人匹配队列。
 
 ## 客户端操作
-
-启动：`task run:server` 与 `task run:client`（后者打开 Godot 编辑器，运行工程即可）。
 
 界面分为应用壳、对局面板与事件面板：
 
@@ -127,11 +175,7 @@ task run:client   # 打开 Godot 客户端工程
 
 事件播放与权威状态分离：对局面板始终渲染最新快照；事件队列只负责按 `seq` 顺序驱动表现层，积压、缺帧或表现失败都不会阻塞对局，点「跳过动画」立即收敛到最新快照。
 
-无显示器冒烟（开发用）：`--server=` 自动连接（连接后自动进入匹配），`--smoke-end-turn` 在自己回合自动结束一回合，便于观察真实事件顺序。
-
-```powershell
-godot --path client -- --server=ws://127.0.0.1:8080/ws --smoke-end-turn
-```
+布局与视觉约定见[客户端界面](ai-docs/architecture/client-ui.md)。
 
 ## 本地端到端验收
 

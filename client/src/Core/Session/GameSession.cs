@@ -98,6 +98,14 @@ public sealed class GameSession
         Send(ProtocolNames.MatchCommand, request, commandId);
     }
 
+    private void ResolvePendingRequests(string kind)
+    {
+        foreach (var requestId in _pending.Where(pair => pair.Value.Kind == kind).Select(pair => pair.Key).ToList())
+        {
+            _pending.Remove(requestId);
+        }
+    }
+
     private void HandleConnected()
     {
         Status = "connected";
@@ -164,6 +172,10 @@ public sealed class GameSession
                 var started = envelope.Data.Deserialize<MatchStartedData>(ProtocolJson.Options);
                 if (started is not null)
                 {
+                    // match.started 是广播（没有 requestId），但它是 queue.join 的最终答复：
+                    // 配对成功后服务端不会再单独回 queue.status，因此在这里结清待处理请求，
+                    // 否则跟踪待处理请求的调用方会一直等待一个不会到来的响应。
+                    ResolvePendingRequests(ProtocolNames.QueueJoin);
                     // 新对局的 seq 从 1 重新开始：清空队列与游标，避免上一局的事件串进来。
                     _events.Clear();
                     _queue.Reset();

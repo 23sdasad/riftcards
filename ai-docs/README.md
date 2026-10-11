@@ -25,6 +25,7 @@ ai-docs/
 │  ├─ paths-and-boundaries.md
 │  ├─ match-state-machine.md
 │  ├─ command-path.md
+│  ├─ client-ui.md
 │  └─ testing.md
 ├─ contracts/               # 对外协议与技术选型
 │  ├─ README.md
@@ -49,10 +50,11 @@ ai-docs/
 5. `architecture/conventions.md`：命名、协议、错误、日志和代码组织约定。
 6. `architecture/match-state-machine.md`：对局生命周期、回合阶段、合法迁移与事件顺序。
 7. `architecture/command-path.md`：指令链路分层责任、requestId 语义与拒绝保证。
-8. `architecture/testing.md`：测试层次、必测场景和验证命令。
-9. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
-10. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
-11. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
+8. `architecture/client-ui.md`：Godot 客户端布局、组件、视觉语言与小窗口规则。
+9. `architecture/testing.md`：测试层次、必测场景和验证命令。
+10. `product/roadmap.md`：当前阶段、下一阶段和暂缓事项。
+11. `contracts/tech-stack.md` 与 `contracts/library-research.md`：工具链和依赖决策。
+12. `task-index.md`：当前任务、依赖和状态；开始改动前阅读对应 task。
 
 ## 文档更新规则
 

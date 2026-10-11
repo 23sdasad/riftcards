@@ -4,42 +4,64 @@ using Riftcards.Client.Core.Session;
 namespace Riftcards.Client.Godot.Match;
 
 /// <summary>
-/// 事件面板：拥有事件泵与表现适配器，每帧消费队列，并提供“跳过动画”立即收敛到最新快照。
+/// 事件面板：可读事件文本、待播放数量与缺帧提示，可折叠，并支持“跳过动画”立即收敛到最新快照。
 ///
-/// 对局面板始终渲染最新快照，因此这里的播放只是表现层补充；队列积压或表现失败都不会影响对局。
+/// 事件面板是次要信息：固定小高度、可折叠，不挤占对局区（见 ai-docs/architecture/client-ui.md）。
+/// 对局面板始终渲染最新快照，因此这里积压或失败都不会影响对局。
 /// </summary>
 public sealed partial class EventLogPanel : VBoxContainer
 {
     private RichTextLabel _log = null!;
     private Label _summary = null!;
+    private Button _toggleButton = null!;
     private GameSession? _session;
     private EventPump? _pump;
     private string? _matchId;
+    private bool _collapsed;
+    private bool _collapsedByHeight;
+    private bool _wasSmall;
 
     public override void _Ready()
     {
-        AddThemeConstantOverride("separation", 4);
+        AddThemeConstantOverride("separation", UiTheme.ElementSeparation);
 
-        var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 8);
-        AddChild(header);
+        var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", UiTheme.ElementSeparation);
 
-        header.AddChild(new Label { Text = "事件" });
+        var header = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        header.AddThemeConstantOverride("separation", UiTheme.ElementSeparation);
+        header.AddChild(UiTheme.Heading("事件"));
+
+        _summary = UiTheme.Caption("待播放 0");
+        _summary.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _summary.VerticalAlignment = VerticalAlignment.Center;
+        header.AddChild(_summary);
+
+        _toggleButton = new Button { Text = "折叠" };
+        UiTheme.StyleButton(_toggleButton);
+        _toggleButton.Pressed += ToggleCollapsed;
+        header.AddChild(_toggleButton);
 
         var skipButton = new Button { Text = "跳过动画" };
+        UiTheme.StyleButton(skipButton, UiTheme.Accent);
         skipButton.Pressed += Skip;
         header.AddChild(skipButton);
 
-        _summary = new Label();
-        header.AddChild(_summary);
+        body.AddChild(header);
 
         _log = new RichTextLabel
         {
             FitContent = false,
             ScrollActive = true,
-            CustomMinimumSize = new Vector2(0, 160),
+            ScrollFollowing = true,
+            CustomMinimumSize = new Vector2(0, UiTheme.EventPanelHeight),
+            SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
-        AddChild(_log);
+        _log.AddThemeFontSizeOverride("normal_font_size", UiTheme.FontCaption);
+        _log.AddThemeColorOverride("default_color", UiTheme.TextSecondary);
+        body.AddChild(_log);
+
+        AddChild(UiTheme.PanelBox(body));
     }
 
     /// <summary>绑定会话并创建事件泵；重复调用会替换旧泵。</summary>
@@ -50,7 +72,7 @@ public sealed partial class EventLogPanel : VBoxContainer
             _session.Changed -= OnSessionChanged;
         }
         _session = session;
-        _pump = new EventPump(session.Queue, new EventLogPresenter(_log));
+        _pump = new EventPump(session.Queue, new EventLogPresenter(_log, session));
         _matchId = null;
         session.Changed += OnSessionChanged;
         OnSessionChanged();
@@ -60,6 +82,44 @@ public sealed partial class EventLogPanel : VBoxContainer
     {
         _pump?.Tick();
         UpdateSummary();
+        UpdateCollapseForHeight();
+    }
+
+    /// <summary>
+    /// 窗口高度不足时默认折叠事件面板，把纵向空间让给对局区；
+    /// 只在高度跨越阈值时改变状态，因此玩家手动展开后不会被立刻折叠回去。
+    /// </summary>
+    private void UpdateCollapseForHeight()
+    {
+        var small = GetViewportRect().Size.Y < 620f;
+        if (small == _wasSmall)
+        {
+            return;
+        }
+        _wasSmall = small;
+        _collapsedByHeight = small;
+        ApplyCollapsed(_collapsed || _collapsedByHeight);
+    }
+
+    private void ToggleCollapsed()
+    {
+        if (_collapsed || _collapsedByHeight)
+        {
+            // 手动展开优先于按高度自动折叠。
+            _collapsed = false;
+            _collapsedByHeight = false;
+        }
+        else
+        {
+            _collapsed = true;
+        }
+        ApplyCollapsed(_collapsed || _collapsedByHeight);
+    }
+
+    private void ApplyCollapsed(bool collapsed)
+    {
+        _log.Visible = !collapsed;
+        _toggleButton.Text = collapsed ? "展开" : "折叠";
     }
 
     private void Skip() => _pump?.SkipToSnapshot(_session?.View);
@@ -85,14 +145,14 @@ public sealed partial class EventLogPanel : VBoxContainer
         }
 
         var queue = _session.Queue;
-        var text = $"待播放 {queue.PendingCount}｜已消费 seq {queue.LastConsumedSeq}";
+        var text = $"待播放 {queue.PendingCount} │ 已消费 seq {queue.LastConsumedSeq}";
         if (queue.HasGap)
         {
-            text += $"｜缺帧（下一个 {queue.NextMissingSeq}）";
+            text += $" │ 缺帧（下一个 {queue.NextMissingSeq}）";
         }
         if (queue.UnknownCount > 0)
         {
-            text += $"｜未知事件 {queue.UnknownCount}";
+            text += $" │ 未知事件 {queue.UnknownCount}";
         }
         _summary.Text = text;
     }
