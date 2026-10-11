@@ -1,6 +1,6 @@
 # 010 — 本地端到端验收
 
-- 状态：in-progress
+- 状态：done
 - 依赖：004、007、008、009
 - 优先级：P0
 - 创建 / 更新：2026-10-08 / 2026-10-08
@@ -72,7 +72,7 @@ Phase 1 完成标准是本地完整对局可运行、可观察、可重复验证
 | 2026-10-08 | Windows / `go -C server test ./internal/e2e -count=5` | 可重复 | 通过：5 次重复 25.0s，无偶发失败 |
 | 2026-10-08 | Windows / `task ci` | 全量门禁通过 | 通过：golangci-lint 0 issues、C# 构建 0 警告、含 `internal/e2e` 的全部 Go 包 `-race`、`dotnet test` 49 通过 |
 | 2026-10-08 | Windows / Godot 4.7.2 双客户端冒烟 + `/metrics` | 主要流程可用且计数一致 | 通过：两客户端进入同一对局（座位 0/1），事件按 `seq` 递增且座位私有事件被过滤；`/metrics` 显示 2 连接、1 局、2 接受、0 拒绝、6 事件、4 次广播，与实际结算一致 |
-| — | GitHub Actions 三平台 | 可重复执行 | 未执行 |
+| 2026-10-08 | GitHub Actions run [38121392505](https://github.com/23sdasad/riftcards/actions/runs/38121392505)（`d8900e5`） | 三平台可重复执行 | 通过：ubuntu 2m28s、windows 4m22s、macos 3m54s；端到端测试在三平台各自拉起真实服务进程并通过 |
 
 ## 风险与回退
 
@@ -94,6 +94,6 @@ Phase 1 完成标准是本地完整对局可运行、可观察、可重复验证
 
 断言覆盖：两个客户端进入同一对局且座位为 0/1；事件并集精确覆盖 `1..lastEventSeq`（按座位过滤不丢不重）；对手手牌内容从不进入任何投影；接受路径 `revision` 恰好 +1；终局 `status` 与 `winnerSeat` 双方一致；`match_ended` 带结束原因；所有拒绝错误码都在协议文档清单内；`/metrics` 计数与实际结算一致；测试结束后服务进程退出、`/healthz` 不再响应。固定种子下两局的事件序列逐字节一致。
 
-可观测性：`match`/`ws` 接入结构化日志（连接、会话、排队、建房含种子、接受/拒绝含 commandId 与版本、认输、断开），新增 `internal/metrics` 与 `GET /metrics`。端到端测试随 `task ci` 在三平台执行。Phase 1 的路线图条目全部完成。
+可观测性：`match`/`ws` 接入结构化日志（连接、会话、排队、建房含种子、接受/拒绝含 commandId 与版本、认输、断开），新增 `internal/metrics` 与 `GET /metrics`。端到端测试随 `task ci` 在三平台执行（run 38121392505：ubuntu 2m28s、windows 4m22s、macos 3m54s）。Phase 1 的路线图条目全部完成。
 
 限制：本机无显示环境，Godot 侧只做了无界面双客户端冒烟（自动连接 + 自动结束一回合），人工点击与视觉检查未执行。
